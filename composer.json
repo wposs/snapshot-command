@@ -1,0 +1,56 @@
+{
+  "name": "wp-cli/snapshot-command",
+  "type": "wp-cli-package",
+  "description": "Backup / Restore WordPress installation",
+  "homepage": "https://github.com/thrijith/snapshot-command",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Thrijith Thankachan",
+      "homepage": "https://thrijith.com/"
+    }
+  ],
+  "require": {
+    "wp-cli/wp-cli": "^2"
+  },
+  "require-dev": {
+    "wp-cli/wp-cli-tests": "^2.1"
+  },
+  "config": {
+    "process-timeout": 7200,
+    "sort-packages": true
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "2.x-dev"
+    },
+    "bundled": true
+  },
+  "autoload": {
+    "psr-4": {
+      "WP_CLI\\Snapshot\\": "src/"
+    },
+    "files": [
+      "snapshot-command.php"
+    ]
+  },
+  "minimum-stability": "dev",
+  "prefer-stable": true,
+  "scripts": {
+    "behat": "run-behat-tests",
+    "behat-rerun": "rerun-behat-tests",
+    "lint": "run-linter-tests",
+    "phpcs": "run-phpcs-tests",
+    "phpunit": "run-php-unit-tests",
+    "prepare-tests": "install-package-tests",
+    "test": [
+      "@lint",
+      "@phpcs",
+      "@phpunit",
+      "@behat"
+    ]
+  },
+  "support": {
+    "issues": "https://github.com/thrijith/snapshot-command/issues"
+  }
+}

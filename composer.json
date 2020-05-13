@@ -21,6 +21,13 @@
     "sort-packages": true
   },
   "extra": {
+    "commands" : [
+      "snapshot",
+      "snapshot create",
+      "snapshot list",
+      "snapshot restore",
+      "snapshot delete"
+    ],
     "branch-alias": {
       "dev-master": "2.x-dev"
     },

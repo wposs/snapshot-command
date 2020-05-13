@@ -11,7 +11,7 @@
     }
   ],
   "require": {
-    "wp-cli/wp-cli": "^2"
+    "wp-cli/wp-cli": "^2.4"
   },
   "require-dev": {
     "wp-cli/wp-cli-tests": "^2.1"
@@ -41,11 +41,13 @@
     "behat-rerun": "rerun-behat-tests",
     "lint": "run-linter-tests",
     "phpcs": "run-phpcs-tests",
+    "phpcbf": "./vendor/bin/phpcbf",
     "phpunit": "run-php-unit-tests",
     "prepare-tests": "install-package-tests",
     "test": [
       "@lint",
       "@phpcs",
+      "@phpcbf",
       "@phpunit",
       "@behat"
     ]

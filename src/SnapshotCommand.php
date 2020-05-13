@@ -292,6 +292,48 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
+	 * Delete a given snapshot.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : ID / Name of Snapshot to delete.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp snapshot delete 1
+	 *
+	 * @when       before_wp_load
+	 * @throws WP_CLI\ExitException
+	 */
+	public function delete( $args, $assoc_args ) {
+		$snapshot_list = $this->db->get_data();
+		$backup_id     = abs( $args[0] );
+
+		// Return error if no backups exist.
+		if ( empty( $snapshot_list ) ) {
+			WP_CLI::error( 'No backups found' );
+		}
+
+		if ( ! empty( $backup_id ) ) {
+			$backup_info = $this->db->get_data( $backup_id );
+		} else {
+			$backup_info = $this->db->get_backup_by_name( $args[0] );
+		}
+
+		// If backup exists delete the record from db and remove the zip.
+		if ( ! empty( $backup_info ) ) {
+			if ( true === $this->db->delete_backup_by_id( $backup_info['id'] ) ) {
+				$backup_path = sprintf( '%s/%s.zip', WP_CLI_SNAPSHOT_DIR, $backup_info['name'] );
+				unlink( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $backup_info['name'] . '.zip' );
+				WP_CLI::success( 'Successfully deleted backup' );
+			}
+		} else {
+			WP_CLI::error( "Backup with id/name '{$backup_id}' not found" );
+		}
+	}
+
+	/**
 	 * Restore theme from backup info.
 	 *
 	 * @param string $themes_json_file Theme data file.

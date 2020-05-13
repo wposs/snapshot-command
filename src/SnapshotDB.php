@@ -118,4 +118,21 @@ class SnapshotDB {
 
 		return false;
 	}
+
+	/**
+	 * Delete backup information from database.
+	 *
+	 * @param int $id Backup ID.
+	 *
+	 * @return bool
+	 */
+	public function delete_backup_by_id( $id ) {
+		if ( ! empty( $id ) ) {
+			self::$dbo->query( "DELETE FROM snapshots WHERE id = $id" );
+
+			return true;
+		}
+
+		return false;
+	}
 }

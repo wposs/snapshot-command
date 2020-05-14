@@ -25,6 +25,7 @@
       "snapshot",
       "snapshot create",
       "snapshot list",
+      "snapshot inspect",
       "snapshot restore",
       "snapshot delete"
     ],

@@ -69,7 +69,6 @@ class SnapshotCommand extends WP_CLI_Command {
 	 */
 	protected $installation_type = '';
 
-
 	/**
 	 * Initialize required files and DB.
 	 *
@@ -143,25 +142,35 @@ class SnapshotCommand extends WP_CLI_Command {
 			$this->progress->tick();
 		}
 
-		$upload_dir       = wp_upload_dir();
-		$uploads_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( $upload_dir['basedir'] ) ) ) * 1024;
-		$data             = [
-			'name'         => $name,
-			'created_at'   => time(),
-			'core_version' => $GLOBALS['wp_version'],
-			'core_type'    => 'mu' == $this->installation_type ? 'multisite' : 'standard',
-			'db_size'      => size_format(
-				$GLOBALS['wpdb']->get_var(
-					$GLOBALS['wpdb']->prepare(
-						"SELECT SUM(data_length + index_length) FROM information_schema.TABLES where table_schema = '%s' GROUP BY table_schema;",
-						DB_NAME
-					)
-				)
-			),
-			'uploads_size' => size_format( $uploads_in_bytes ),
-		];
+		$zip_size_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' ) ) ) * 1024;
+		$snapshot_id       = $this->create_snapshot(
+			[
+				'name'            => $name,
+				'created_at'      => time(),
+				'backup_zip_size' => size_format( $zip_size_in_bytes ),
+			]
+		);
 
-		if ( true === $this->db->insert( 'snapshots', $data ) ) {
+		if ( ! empty( $snapshot_id ) ) {
+			$upload_dir       = wp_upload_dir();
+			$uploads_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( $upload_dir['basedir'] ) ) ) * 1024;
+			$this->create_snapshot_extra_info(
+				[
+					'core_version' => $GLOBALS['wp_version'],
+					'core_type'    => 'mu' == $this->installation_type ? 'multisite' : 'standard',
+					'db_size'      => size_format(
+						$GLOBALS['wpdb']->get_var(
+							$GLOBALS['wpdb']->prepare(
+								"SELECT SUM(data_length + index_length) FROM information_schema.TABLES where table_schema = '%s' GROUP BY table_schema;",
+								DB_NAME
+							)
+						)
+					),
+					'uploads_size' => size_format( $uploads_in_bytes ),
+					'snapshot_id'  => $snapshot_id,
+				],
+				$snapshot_id
+			);
 			$this->progress->finish();
 			WP_CLI::success( 'Site backup completed.' );
 		} else {
@@ -196,7 +205,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function _list( $args, $assoc_args ) {
-		$snapshot_list = $this->db->get_data();
+		$snapshot_list = $this->db->get_snapshot_data();
 
 		// Return error if no backups exist.
 		if ( empty( $snapshot_list ) ) {
@@ -213,7 +222,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 		$formatter = new Formatter(
 			$assoc_args,
-			[ 'id', 'name', 'created_at', 'backup_type', 'core_version', 'core_type', 'db_size', 'uploads_size' ]
+			[ 'id', 'name', 'created_at', 'backup_type', 'backup_zip_size' ]
 		);
 		$formatter->display_items( $snapshot_list );
 	}
@@ -231,19 +240,14 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *     $ wp snapshot restore 1
 	 *
 	 * @when  after_wp_load
+	 * @throws WP_CLI\ExitException
 	 */
 	public function restore( $args, $assoc_args ) {
-		$backup_id      = abs( $args[0] );
-		$snapshot_files = [];
-
-		if ( ! empty( $backup_id ) ) {
-			$backup_info = $this->db->get_data( $backup_id );
-		} else {
-			$backup_info = $this->db->get_backup_by_name( $args[0] );
-		}
-
-		$temp_info = $backup_info;
-		unset( $temp_info['backup_type'], $temp_info['created_at'], $temp_info['name'], $temp_info['id'] );
+		$backup_info         = $this->get_backup_info( $args[0] );
+		$snapshot_files      = [];
+		$extra_snapshot_info = $this->db->get_extra_snapshot_info( $backup_info['id'] );
+		$temp_info           = array_merge( $backup_info, $extra_snapshot_info );
+		unset( $temp_info['backup_type'], $temp_info['backup_zip_size'], $temp_info['created_at'], $temp_info['name'], $temp_info['id'], $temp_info['snapshot_id'] );
 		$assoc_args['fields'] = array_keys( $temp_info );
 
 		// Display a small summary of the backup info.
@@ -292,6 +296,33 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
+	 * Get information of the installation for given backup.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <id>
+	 * : ID / Name of Snapshot to inspect.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp snapshot inspect 1
+	 *
+	 * @when  before_wp_load
+	 * @throws WP_CLI\ExitException
+	 */
+	public function inspect( $args, $assoc_args ) {
+		$backup_info         = $this->get_backup_info( $args[0] );
+		$extra_snapshot_info = $this->db->get_extra_snapshot_info( $backup_info['id'] );
+		$temp_info           = $extra_snapshot_info;
+		unset( $temp_info['snapshot_id'] );
+		$assoc_args['fields'] = array_keys( $temp_info );
+
+		// Display a small summary of the installation info.
+		$formatter = new Formatter( $assoc_args );
+		$formatter->display_item( $temp_info );
+	}
+
+	/**
 	 * Delete a given snapshot.
 	 *
 	 * ## OPTIONS
@@ -307,30 +338,65 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function delete( $args, $assoc_args ) {
-		$snapshot_list = $this->db->get_data();
-		$backup_id     = abs( $args[0] );
+		$backup_info = $this->get_backup_info( $args[0] );
 
-		// Return error if no backups exist.
-		if ( empty( $snapshot_list ) ) {
-			WP_CLI::error( 'No backups found' );
+		// Delete the record from db and remove the zip.
+		if ( true === $this->db->delete_backup_by_id( $backup_info['id'] ) ) {
+			$backup_path = sprintf( '%s/%s.zip', WP_CLI_SNAPSHOT_DIR, $backup_info['name'] );
+			unlink( $backup_path );
+			WP_CLI::success( 'Successfully deleted backup' );
 		}
+	}
 
-		if ( ! empty( $backup_id ) ) {
-			$backup_info = $this->db->get_data( $backup_id );
+	/**
+	 * Wrapper function to check and get backup info.
+	 *
+	 * @param string $snapshot_id Snapshot ID / Name.
+	 *
+	 * @return array|bool
+	 * @throws WP_CLI\ExitException
+	 */
+	private function get_backup_info( $snapshot_id ) {
+		if ( ! empty( $snapshot_id ) ) {
+			$backup_info = $this->db->get_snapshot_data( abs( $snapshot_id ) );
 		} else {
-			$backup_info = $this->db->get_backup_by_name( $args[0] );
+			$backup_info = $this->db->get_backup_by_name( $snapshot_id );
 		}
 
-		// If backup exists delete the record from db and remove the zip.
-		if ( ! empty( $backup_info ) ) {
-			if ( true === $this->db->delete_backup_by_id( $backup_info['id'] ) ) {
-				$backup_path = sprintf( '%s/%s.zip', WP_CLI_SNAPSHOT_DIR, $backup_info['name'] );
-				unlink( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $backup_info['name'] . '.zip' );
-				WP_CLI::success( 'Successfully deleted backup' );
-			}
-		} else {
-			WP_CLI::error( "Backup with id/name '{$backup_id}' not found" );
+		// Check if there is valid backup to inspect.
+		if ( empty( $backup_info ) ) {
+			WP_CLI::error( "Snapshot with id/name '{$snapshot_id}' doesn't exist" );
 		}
+
+		return $backup_info;
+	}
+
+	/**
+	 * Add extra information about the installation in the snapshot.
+	 *
+	 * @param array $installation_info Extra information on the installation.
+	 * @param int   $snapshot_id       Snapshot ID.
+	 */
+	private function create_snapshot_extra_info( $installation_info, $snapshot_id ) {
+		foreach ( $installation_info as $info_item_key => $info_item_value ) {
+			$extra_info = [
+				'info_key'    => $info_item_key,
+				'info_value'  => $info_item_value,
+				'snapshot_id' => $snapshot_id,
+			];
+			$this->db->insert( 'snapshot_extra_info', $extra_info );
+		}
+	}
+
+	/**
+	 * Create a snapshot record in DB and return the ID.
+	 *
+	 * @param array $snapshot_info Snapshot information.
+	 *
+	 * @return mixed
+	 */
+	private function create_snapshot( $snapshot_info ) {
+		return $this->db->insert( 'snapshots', $snapshot_info );
 	}
 
 	/**
@@ -448,7 +514,6 @@ class SnapshotCommand extends WP_CLI_Command {
 		$db_export_path     = getcwd();
 		$current_export_sql = WP_CLI::runcommand( 'db export --add-drop-table --porcelain', [ 'return' => true ] );
 		exec( "mv $db_export_path/$current_export_sql $this->current_snapshots_full_path" );
-		$this->config['db_backup'] = Utils\trailingslashit( $this->current_snapshots_dir ) . $current_export_sql;
 		$this->progress->tick();
 	}
 
@@ -459,7 +524,6 @@ class SnapshotCommand extends WP_CLI_Command {
 		$wp_content_dir = wp_upload_dir();
 		$destination    = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . Utils\trailingslashit( $this->current_snapshots_dir ) . 'uploads.zip';
 		if ( $this->zipData( $wp_content_dir['basedir'], $destination ) ) {
-			$this->config['media_backup'] = Utils\trailingslashit( $this->current_snapshots_dir ) . 'uploads.zip';
 			$this->progress->tick();
 		}
 	}
@@ -518,7 +582,6 @@ class SnapshotCommand extends WP_CLI_Command {
 			$all_plugins_info[] = $this->get_plugin_info( $file, $details );
 		}
 		$this->write_config_to_file( $this->config_dir, 'plugins', $all_plugins_info );
-		$this->config['plugin_info'] = Utils\trailingslashit( $this->config_dir ) . 'plugins.json';
 		$this->progress->tick();
 	}
 
@@ -606,7 +669,6 @@ class SnapshotCommand extends WP_CLI_Command {
 			$all_themes_info[] = $this->get_theme_info( $name, $theme );
 		}
 		$this->write_config_to_file( $this->config_dir, 'themes', $all_themes_info );
-		$this->config['theme_info'] = Utils\trailingslashit( $this->config_dir ) . 'themes.json';
 		$this->progress->tick();
 	}
 

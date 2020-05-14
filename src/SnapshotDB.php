@@ -46,18 +46,28 @@ class SnapshotDB {
 	private static function create_tables() {
 		// phpcs:ignore PHPCompatibility.Extensions.RemovedExtensions.sqliteRemoved -- False positive.
 		self::$dbo = new \SQLite3( WP_CLI_SNAPSHOT_DB );
-		$query     = 'CREATE TABLE snapshots (
+
+		// Create snapshots table.
+		$snapshots_table_query = 'CREATE TABLE IF NOT EXISTS snapshots (
 			id INTEGER,
 			name VARCHAR,
 			created_at DATETIME,
 			backup_type INTEGER DEFAULT 0,
-			core_version VARCHAR,
-			core_type VARCHAR,
-			db_size VARCHAR,
-			uploads_size VARCHAR,
+			backup_zip_size VARCHAR,
 			PRIMARY KEY (id)
 		);';
-		self::$dbo->exec( $query );
+		self::$dbo->exec( $snapshots_table_query );
+
+		// Create snapshot_extra_info table.
+		$extra_info_table_query = 'CREATE TABLE IF NOT EXISTS snapshot_extra_info (
+			id INTEGER,
+			info_key VARCHAR,
+			info_value VARCHAR,
+			snapshot_id INTEGER,
+			PRIMARY KEY (id)
+		);';
+		self::$dbo->exec( $extra_info_table_query );
+
 	}
 
 	/**
@@ -72,36 +82,55 @@ class SnapshotDB {
 		$fields = implode( ', ', array_keys( $data ) );
 		$values = "'" . implode( "','", array_values( $data ) ) . "'";
 		$query  = "INSERT INTO $table( $fields ) VALUES ( $values );";
+		self::$dbo->exec( $query );
 
-		return self::$dbo->exec( $query );
+		return self::$dbo->lastInsertRowid();
 	}
 
 	/**
-	 * Get individual Snapshot information.
+	 * Get individual or all snapshots information.
 	 *
 	 * @param int $id Snapshot ID.
 	 *
 	 * @return array
 	 */
-	public function get_data( $id = 0 ) {
+	public function get_snapshot_data( $id = 0 ) {
 		if ( empty( $id ) ) {
 			$data = [];
 			$res  = self::$dbo->query( 'SELECT * FROM snapshots' );
 			while ( $row = $res->fetchArray() ) {
-				$data[ $row['id'] ]['id']           = $row['id'];
-				$data[ $row['id'] ]['name']         = $row['name'];
-				$data[ $row['id'] ]['created_at']   = $row['created_at'];
-				$data[ $row['id'] ]['backup_type']  = $row['backup_type'];
-				$data[ $row['id'] ]['core_version'] = $row['core_version'];
-				$data[ $row['id'] ]['core_type']    = $row['core_type'];
-				$data[ $row['id'] ]['db_size']      = $row['db_size'];
-				$data[ $row['id'] ]['uploads_size'] = $row['uploads_size'];
+				$data[ $row['id'] ]['id']              = $row['id'];
+				$data[ $row['id'] ]['name']            = $row['name'];
+				$data[ $row['id'] ]['created_at']      = $row['created_at'];
+				$data[ $row['id'] ]['backup_type']     = $row['backup_type'];
+				$data[ $row['id'] ]['backup_zip_size'] = $row['backup_zip_size'];
 			}
 
 			return $data;
 		} else {
 			return self::$dbo->querySingle( "SELECT * FROM snapshots WHERE id = $id", true );
 		}
+	}
+
+	/**
+	 * Get extra information on the given snapshot.
+	 *
+	 * @param int $snapshot_id Snapshot ID.
+	 *
+	 * @return mixed
+	 */
+	public function get_extra_snapshot_info( $snapshot_id ) {
+		if ( ! empty( $snapshot_id ) ) {
+			$data   = [];
+			$result = self::$dbo->query( "SELECT * FROM snapshot_extra_info WHERE snapshot_id = $snapshot_id" );
+			while ( $row = $result->fetchArray() ) {
+				$data[ $row['info_key'] ] = $row['info_value'];
+			}
+
+			return $data;
+		}
+
+		return false;
 	}
 
 	/**
@@ -129,6 +158,7 @@ class SnapshotDB {
 	public function delete_backup_by_id( $id ) {
 		if ( ! empty( $id ) ) {
 			self::$dbo->query( "DELETE FROM snapshots WHERE id = $id" );
+			self::$dbo->query( "DELETE FROM snapshot_extra_info WHERE snapshot_id = $id" );
 
 			return true;
 		}

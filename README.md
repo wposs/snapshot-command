@@ -81,6 +81,25 @@ wp snapshot list [--format=<format>]
 
 
 
+### wp snapshot inspect
+
+Get information of the installation for given backup.
+
+~~~
+wp snapshot inspect <id>
+~~~
+
+**OPTIONS**
+
+	<id>
+		ID / Name of Snapshot to inspect.
+
+**EXAMPLES**
+
+    $ wp snapshot inspect 1
+
+
+
 ### wp snapshot restore
 
 Restores a snapshot of WordPress installation.

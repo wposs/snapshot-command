@@ -767,6 +767,7 @@ class SnapshotCommand extends WP_CLI_Command {
 				WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
 			}
 		} else {
+			WP_CLI::log( 'Installed version doesn\'t match' );
 			WP_CLI::log( "Downloading fresh files for WordPress version {$backup_version}" );
 			WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
 		}

@@ -257,7 +257,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		WP_CLI::confirm( 'Would you like to proceed with the Restore Operation?' );
 
 		// Update WordPress version if required.
-		$this->maybe_restore_core_version( $backup_info['core_version'] );
+		$this->maybe_restore_core_version( $extra_snapshot_info['core_version'] );
 
 		// Get all the backup zip content.
 		$zip_content = $this->get_zip_contents( $backup_info['name'] );
@@ -754,6 +754,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 */
 	private function maybe_restore_core_version( $backup_version ) {
 		global $wp_version;
+		$installation_path = ABSPATH;
 
 		if ( $wp_version === $backup_version ) {
 			WP_CLI::log( 'Installed version matches snapshot version, checking files authenticity' );
@@ -763,11 +764,11 @@ class SnapshotCommand extends WP_CLI_Command {
 			} else {
 				WP_CLI::warning( 'WordPress version doesn\'t verify against its checksums, installing fresh setup' );
 				WP_CLI::log( "Downloading fresh flies for WordPress version {$backup_version}" );
-				WP_CLI::runcommand( "core download --version={$backup_version} --force --quiet" );
+				WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
 			}
 		} else {
 			WP_CLI::log( "Downloading fresh files for WordPress version {$backup_version}" );
-			WP_CLI::runcommand( "core download --version={$backup_version} --force --quiet" );
+			WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
 		}
 	}
 

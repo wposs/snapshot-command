@@ -7,6 +7,7 @@ use WP_CLI_Command;
 use WP_CLI\Utils;
 use WP_CLI\Formatter;
 use ZipArchive;
+use function cli\prompt;
 
 /**
  * Backup / Restore WordPress installation
@@ -51,9 +52,16 @@ class SnapshotCommand extends WP_CLI_Command {
 	/**
 	 * The DB instance.
 	 *
-	 * @var string|SnapshotDB
+	 * @var object|SnapshotDB
 	 */
 	protected $db = '';
+
+	/**
+	 * Instance of Snapshot Storage Class.
+	 *
+	 * @var object|SnapshotStorage
+	 */
+	protected $storage = '';
 
 	/**
 	 * Type of the backup currently in process.
@@ -91,6 +99,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		$this->db       = new SnapshotDB();
+		$this->storage  = new SnapshotStorage();
 		$this->progress = Utils\make_progress_bar( 'Creating Backup', 5 );
 
 	}
@@ -345,6 +354,123 @@ class SnapshotCommand extends WP_CLI_Command {
 			$backup_path = sprintf( '%s/%s.zip', WP_CLI_SNAPSHOT_DIR, $backup_info['name'] );
 			unlink( $backup_path );
 			WP_CLI::success( 'Successfully deleted backup' );
+		}
+	}
+
+	/**
+	 * Configure credentials for external storage.
+	 *
+	 * Supported services are:
+	 *  - Amazon S3
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--service=<service>]
+	 * : Third party storage service to store backup zip.
+	 * ---
+	 * default: aws
+	 * options:
+	 *   - aws
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp snapshot configure --service=aws
+	 *
+	 * @when       before_wp_load
+	 * @throws WP_CLI\ExitException
+	 */
+	public function configure( $args, $assoc_args ) {
+		$service = Utils\get_flag_value( $assoc_args, 'service' );
+		if ( 'aws' === $service ) {
+			$aws_key       = prompt( 'Please enter your AWS Key', false, ': ', true );
+			$aws_secret    = prompt( 'Please enter your AWS Secret', false, ': ', true );
+			$service_array = [
+				'aws_key' => $aws_key,
+				'aws_secret' => $aws_secret,
+			];
+			foreach ( $service_array as $info_item_key => $info_item_value ) {
+				$extra_info = [
+					'info_key'        => $info_item_key,
+					'info_value'      => $info_item_value,
+					'storage_service' => $service,
+				];
+				$this->db->insert( 'snapshot_storage_credentials', $extra_info );
+			}
+		}
+		WP_CLI::success( "Successfully configured {$service} credentials" );
+	}
+
+	/**
+	 * Push the snapshot to an external sotrage service.
+	 *
+	 * <id>
+	 * : ID / Name of Snapshot to inspect.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--service=<service>]
+	 * : Third party storage service to store backup zip.
+	 * ---
+	 * default: aws
+	 * options:
+	 *   - aws
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp snapshot push 1 --service=aws
+	 *
+	 * @when       before_wp_load
+	 * @throws WP_CLI\ExitException
+	 */
+	public function push( $args, $assoc_args ) {
+		$backup_info  = $this->get_backup_info( $args[0] );
+		$service      = Utils\get_flag_value( $assoc_args, 'service' );
+		$service_info = $this->storage->get_storage_service_info( $service );
+
+		// Make sure we have required data to proceed.
+		if ( empty( $service_info ) ) {
+			WP_CLI::error( 'Please configure your service using wp snapshot configure --service=<service_name>' );
+		}
+
+		// Handle backup push based on service type.
+		if ( 'aws' === $service ) {
+			$bucket_name   = prompt( 'Please enter a S3 bucket name', false, ': ' );
+			$bucket_region = prompt( 'Please enter a S3 bucket region', false, ': ' );
+			if ( empty( $bucket_name ) ) {
+				WP_CLI::error( 'Please provide a S3 bucket name' );
+			}
+			if ( empty( $bucket_region ) ) {
+				WP_CLI::error( 'Please provide a S3 bucket region' );
+			}
+
+			// Initialize the s3 instance.
+			$this->storage->initialize_s3(
+				[
+					'region' => $bucket_region,
+					'key'    => $service_info['aws_key'],
+					'secret' => $service_info['aws_secret'],
+				]
+			);
+
+			// Push the zip file to bucket.
+			$upload_complete = $this->storage->push_to_s3_bucket(
+				[
+					'bucket_name' => $bucket_name,
+					'backup_path' => sprintf(
+						'%s%s.zip',
+						Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
+						$backup_info['name']
+					),
+				]
+			);
+
+			if ( true === $upload_complete ) {
+				WP_CLI::success( "Successfully uploaded {$backup_info['name']}.zip to S3 bucket: {$bucket_name}" );
+			} else {
+				WP_CLI::error( 'Upload error, something went wrong' );
+			}
 		}
 	}
 

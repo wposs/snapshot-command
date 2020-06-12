@@ -68,6 +68,16 @@ class SnapshotDB {
 		);';
 		self::$dbo->exec( $extra_info_table_query );
 
+		// Create storage_credentials table.
+		$storage_credentials_table_query = 'CREATE TABLE IF NOT EXISTS snapshot_storage_credentials (
+			id INTEGER,
+			storage_service VARCHAR,
+			info_key VARCHAR,
+			info_value VARCHAR,
+			PRIMARY KEY (id)
+		);';
+		self::$dbo->exec( $storage_credentials_table_query );
+
 	}
 
 	/**
@@ -165,4 +175,44 @@ class SnapshotDB {
 
 		return false;
 	}
+
+	/**
+	 * Get third party storage info.
+	 *
+	 * @param string $service Service provider name.
+	 *
+	 * @return array|bool
+	 */
+	public function get_storage_service_info( $service ) {
+		if ( ! empty( $service ) ) {
+			$data = [];
+			$res  = self::$dbo->query( "SELECT * FROM snapshot_storage_credentials WHERE storage_service LIKE '$service'" );
+			while ( $row = $res->fetchArray() ) {
+				$data[ $row['id'] ]['id']              = $row['id'];
+				$data[ $row['id'] ]['storage_service'] = $row['storage_service'];
+				$data[ $row['id'] ]['info_key']        = $row['info_key'];
+				$data[ $row['id'] ]['info_value']      = $row['info_value'];
+			}
+
+			return $data;
+		}
+
+		return false;
+	}
+
+	/**
+	 * Get all registered third party info required for storing backup files.
+	 *
+	 * @return array
+	 */
+	public function get_registered_services() {
+		$data = [];
+		$res  = self::$dbo->query( 'SELECT storage_service FROM snapshot_storage_credentials' );
+		while ( $row = $res->fetchArray() ) {
+			$data[] = $row['storage_service'];
+		}
+
+		return $data;
+	}
+
 }

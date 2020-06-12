@@ -136,6 +136,60 @@ wp snapshot delete <id>
 
     $ wp snapshot delete 1
 
+
+
+### wp snapshot configure
+
+Configure credentials for external storage.
+
+~~~
+wp snapshot configure [--service=<service>]
+~~~
+
+Supported services are:
+ - Amazon S3
+
+**OPTIONS**
+
+	[--service=<service>]
+		Third party storage service to store backup zip.
+		---
+		default: aws
+		options:
+		  - aws
+		---
+
+**EXAMPLES**
+
+    $ wp snapshot configure --service=aws
+
+
+
+### wp snapshot push
+
+Push the snapshot to an external sotrage service.
+
+~~~
+wp snapshot push <id> [--service=<service>]
+~~~
+
+	<id>
+		ID / Name of Snapshot to inspect.
+
+**OPTIONS**
+
+	[--service=<service>]
+		Third party storage service to store backup zip.
+		---
+		default: aws
+		options:
+		  - aws
+		---
+
+**EXAMPLES**
+
+    $ wp snapshot push 1 --service=aws
+
 ## Installing
 
 This package is included with WP-CLI itself, no additional installation necessary.

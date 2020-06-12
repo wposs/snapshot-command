@@ -29,7 +29,9 @@
       "snapshot list",
       "snapshot inspect",
       "snapshot restore",
-      "snapshot delete"
+      "snapshot delete",
+      "snapshot configure",
+      "snapshot push"
     ],
     "branch-alias": {
       "dev-master": "2.x-dev"

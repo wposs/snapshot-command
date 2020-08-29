@@ -891,13 +891,11 @@ class SnapshotCommand extends WP_CLI_Command {
 				WP_CLI::log( 'WordPress verifies against its checksums, skipping WordPress Core Installation' );
 			} else {
 				WP_CLI::warning( 'WordPress version doesn\'t verify against its checksums, installing fresh setup' );
-				WP_CLI::log( "Downloading fresh flies for WordPress version {$backup_version}" );
-				WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
+				$this->download_wp( $backup_version, $installation_path );
 			}
 		} else {
 			WP_CLI::log( 'Installed version doesn\'t match' );
-			WP_CLI::log( "Downloading fresh files for WordPress version {$backup_version}" );
-			WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
+			$this->download_wp( $backup_version, $installation_path );
 		}
 	}
 
@@ -929,6 +927,19 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Download WordPress.
+	 *
+	 * @param string $backup_version    WP version to install.
+	 * @param string $installation_path Installation path.
+	 *
+	 * @return void
+	 */
+	private function download_wp( $backup_version, $installation_path ) {
+		WP_CLI::log( "Downloading fresh files for WordPress version {$backup_version}" );
+		WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
 	}
 
 }

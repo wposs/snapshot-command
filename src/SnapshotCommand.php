@@ -295,8 +295,8 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		// Restore Plugins and Themes.
 		if ( ! empty( $snapshot_files['configs'] ) ) {
-			$this->restore_plugin_data( $snapshot_files['configs']['plugins'] );
-			$this->restore_theme_data( $snapshot_files['configs']['themes'] );
+			$this->restore_extension_data( $snapshot_files['configs']['plugins'], 'plugins' );
+			$this->restore_extension_data( $snapshot_files['configs']['themes'], 'themes' );
 		}
 
 		// Restore Media.
@@ -528,62 +528,50 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
-	 * Restore theme from backup info.
+	 * Restore extension from backup info.
 	 *
-	 * @param string $themes_json_file Theme data file.
+	 * @param string $ext_json_file Extension data file.
+	 * @param string $ext_type      Type of Extension.
+	 *                              Options: themes|plugins
+	 *
+	 * @return void
 	 */
-	private function restore_theme_data( $themes_json_file ) {
-		if ( ! empty( $themes_json_file ) ) {
-			WP_CLI::warning( 'Removing currently installed themes' );
-			WP_CLI::runcommand( 'theme delete --all --force --quiet' );
-
-			WP_CLI::log( 'Restoring themes...' );
-			$backup_theme_data = json_decode( file_get_contents( $themes_json_file ), true );
-			foreach ( $backup_theme_data as $theme_data ) {
-				$theme_is_public = $theme_data['is_public'];
-				$theme_name      = $theme_data['name'];
-				$theme_slug      = $theme_data['slug'];
-				$theme_version   = $theme_data['version'];
-				$theme_is_active = true === $theme_data['is_active'] ? '--activate' : '';
-
-				if ( false === $theme_is_public ) {
-					WP_CLI::warning( "Theme {$theme_name} is not available on WordPress.org, please install from appropriate source" );
-				} else {
-					WP_CLI::runcommand( "theme install {$theme_slug} --version={$theme_version} {$theme_is_active} --quiet" );
-				}
-			}
-			$this->progress->tick();
+	private function restore_extension_data( $ext_json_file, $ext_type ) {
+		if ( empty( $ext_json_file ) || empty( $ext_type ) ) {
+			return;
 		}
-	}
 
-	/**
-	 * Restore plugin from backup info.
-	 *
-	 * @param string $plugins_json_file Plugin data file.
-	 */
-	private function restore_plugin_data( $plugins_json_file ) {
-		if ( ! empty( $plugins_json_file ) ) {
-			WP_CLI::warning( 'Removing currently installed plugins' );
+		$command  = 'theme';
+		$ext_name = 'Theme';
+		if ( 'plugins' === $ext_type ) {
+			$command  = 'plugin';
+			$ext_name = 'Plugin';
+		}
+
+		WP_CLI::warning( "Removing currently installed {$ext_type}" );
+		if ( 'plugins' === $ext_type ) {
 			WP_CLI::runcommand( 'plugin deactivate --all --quiet' );
 			WP_CLI::runcommand( 'plugin uninstall --all --quiet' );
-
-			WP_CLI::log( 'Restoring plugins...' );
-			$backup_plugin_data = json_decode( file_get_contents( $plugins_json_file ), true );
-			foreach ( $backup_plugin_data as $plugin_data ) {
-				$plugin_is_public = $plugin_data['is_public'];
-				$plugin_name      = $plugin_data['name'];
-				$plugin_slug      = $plugin_data['slug'];
-				$plugin_version   = $plugin_data['version'];
-				$plugin_is_active = true === $plugin_data['is_active'] ? '--activate' : '';
-
-				if ( false === $plugin_is_public ) {
-					WP_CLI::warning( " Plugin {$plugin_name} is not available on WordPress.org, please install from appropriate source" );
-				} else {
-					WP_CLI::runcommand( "plugin install {$plugin_slug} --version={$plugin_version} {$plugin_is_active} --quiet" );
-				}
-			}
-			$this->progress->tick();
+		} elseif ( 'themes' === $ext_type ) {
+			WP_CLI::runcommand( 'theme delete --all --force --quiet' );
 		}
+
+		WP_CLI::log( "Restoring {$ext_type}..." );
+		$backup_ext_data = json_decode( file_get_contents( $ext_json_file ), true );
+		foreach ( $backup_ext_data as $ext_data ) {
+			$ext_is_public = $ext_data['is_public'];
+			$ext_name      = $ext_data['name'];
+			$ext_slug      = $ext_data['slug'];
+			$ext_version   = $ext_data['version'];
+			$ext_is_active = true === $ext_data['is_active'] ? '--activate' : '';
+
+			if ( false === $ext_is_public ) {
+				WP_CLI::warning( "{$ext_name} {$ext_name} is not available on WordPress.org, please install from appropriate source" );
+			} else {
+				WP_CLI::runcommand( "{$command} install {$ext_slug} --version={$ext_version} {$ext_is_active} --quiet" );
+			}
+		}
+		$this->progress->tick();
 	}
 
 	/**

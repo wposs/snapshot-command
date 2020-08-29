@@ -98,9 +98,10 @@ class SnapshotCommand extends WP_CLI_Command {
 			throw new \Exception( 'Snapshot command requires ZipArchive.' );
 		}
 
-		$this->db       = new SnapshotDB();
-		$this->storage  = new SnapshotStorage();
-		$this->progress = Utils\make_progress_bar( 'Creating Backup', 5 );
+		$this->db             = new SnapshotDB();
+		$this->storage        = new SnapshotStorage();
+		$this->snapshot_utils = new WP_CLI\Snapshot\Utils();
+		$this->progress       = Utils\make_progress_bar( 'Creating Backup', 5 );
 
 	}
 
@@ -252,6 +253,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function restore( $args, $assoc_args ) {
+		$this->snapshot_utils->available_wp_packages(); // Check required packages available or not.
 		$backup_info         = $this->get_backup_info( $args[0] );
 		$snapshot_files      = [];
 		$extra_snapshot_info = $this->db->get_extra_snapshot_info( $backup_info['id'] );

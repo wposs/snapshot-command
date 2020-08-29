@@ -61,7 +61,7 @@ class Utils {
 		}
 
 		foreach ( $packages_raw_list as $package ) {
-			$this->installed_packages[ $package['name'] ] = $package['name'];
+			$this->installed_packages[] = $package['name'];
 		}
 	}
 
@@ -72,9 +72,11 @@ class Utils {
 	 */
 	private function check_missing_packages() {
 		foreach ( $this->required_packages as $package_name => $installation_command ) {
-			if ( empty( $this->installed_packages[ $package_name ] ) ) {
-				$this->missing_packages[ $package_name ] = $installation_command;
+			if ( in_array( $package_name, $this->installed_packages, true ) ) {
+				continue;
 			}
+
+			$this->missing_packages[ $package_name ] = $installation_command;
 		}
 
 		if ( empty( $this->missing_packages ) ) {
@@ -91,10 +93,10 @@ class Utils {
 	 */
 	private function show_missing_packages_info() {
 		foreach ( $this->missing_packages as $package_name => $installation_command ) {
-			WP_CLI::warning( "Missing '$package_name' package. Try '$installation_command'." );
+			WP_CLI::warning( "Missing '{$package_name}' package. Try '{$installation_command}'." );
 		}
 
-		WP_CLI::error( 'Snapshot command needs to be installed above packages.' );
+		WP_CLI::error( 'Snapshot command requires above packages to be installed.' );
 	}
 
 }

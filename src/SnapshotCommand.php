@@ -986,7 +986,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			$resource_to_be_removed->isDir() ? rmdir( $resource_to_be_removed ) : unlink( $resource_to_be_removed );
 		}
 
-		WP_CLI::log( 'Restoring media backup...' );
+		WP_CLI::log( 'Restoring full backup...' );
 		$this->unZipData( $wp_content_zip, $wp_content_dir );
 		$this->progress->tick();
 	}

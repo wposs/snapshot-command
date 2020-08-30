@@ -6,7 +6,7 @@ The command is still under development.
 
 Backup / Restore WordPress installation
 
-[![Build Status](https://travis-ci.org/wp-cli/snapshot-command.svg?branch=master)](https://travis-ci.org/wp-cli/snapshot-command)
+[![Build Status](https://travis-ci.org/wposs/snapshot-command.svg?branch=master)](https://travis-ci.org/wposs/snapshot-command)
 
 Quick links: [Using](#using) | [Installing](#installing) | [Contributing](#contributing) | [Support](#support)
 
@@ -192,9 +192,7 @@ wp snapshot push <id> [--service=<service>]
 
 ## Installing
 
-This package is included with WP-CLI itself, no additional installation necessary.
-
-To install the latest version of this package over what's included in WP-CLI, run:
+To install the latest version of this package, run:
 
     wp package install git@github.com:wposs/snapshot-command.git
 
@@ -212,12 +210,14 @@ Think you’ve found a bug? We’d love for you to help us get it fixed.
 
 Before you create a new issue, you should [search existing issues](https://github.com/wposs/snapshot-command/issues?q=label%3Abug%20) to see if there’s an existing resolution to it, or if it’s already been fixed in a newer version.
 
-Once you’ve done a bit of searching and discovered there isn’t an open or fixed issue for your bug, please [create a new issue](https://github.com/wp-cli/snapshot-command/issues/new). Include as much detail as you can, and clear steps to reproduce if possible. For more guidance, [review our bug report documentation](https://make.wordpress.org/cli/handbook/bug-reports/).
+Once you’ve done a bit of searching and discovered there isn’t an open or fixed issue for your bug, please [create a new issue](https://github.com/wposs/snapshot-command/issues/new). Include as much detail as you can, and clear steps to reproduce if possible
 
 ### Creating a pull request
 
 Want to contribute a new feature? Please first [open a new issue](https://github.com/wposs/snapshot-command/issues/new) to discuss whether the feature is a good fit for the project.
 
 Once you've decided to commit the time to seeing your pull request through, [please follow our guidelines for creating a pull request](https://make.wordpress.org/cli/handbook/pull-requests/) to make sure it's a pleasant experience. See "[Setting up](https://make.wordpress.org/cli/handbook/pull-requests/#setting-up)" for details specific to working on this package locally.
+
+---
 
 *This README.md is generated dynamically from the project's codebase using `wp scaffold package-readme` ([doc](https://github.com/wp-cli/scaffold-package-command#wp-scaffold-package-readme)). To suggest changes, please submit a pull request against the corresponding part of the codebase.*

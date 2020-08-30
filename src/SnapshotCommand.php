@@ -133,8 +133,10 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		if ( empty( $this->backup_type ) ) {
 			$this->start_progress_bar( 'Creating Backup', 4 );
+			$db_backup_type = 1;
 		} else {
 			$this->start_progress_bar( 'Creating Backup', 5 );
+			$db_backup_type = 0;
 		}
 
 		// Create necessary directories.
@@ -168,6 +170,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			[
 				'name'            => $name,
 				'created_at'      => time(),
+				'backup_type'     => $db_backup_type,
 				'backup_zip_size' => size_format( $zip_size_in_bytes ),
 			]
 		);
@@ -270,6 +273,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		$snapshot_files      = [];
 		$extra_snapshot_info = $this->db->get_extra_snapshot_info( $backup_info['id'] );
 		$temp_info           = array_merge( $backup_info, $extra_snapshot_info );
+		$db_backup_type      = $temp_info['backup_type'];
 		unset( $temp_info['backup_type'], $temp_info['backup_zip_size'], $temp_info['created_at'], $temp_info['name'], $temp_info['id'], $temp_info['snapshot_id'] );
 		$assoc_args['fields'] = array_keys( $temp_info );
 
@@ -311,8 +315,13 @@ class SnapshotCommand extends WP_CLI_Command {
 			$this->restore_extension_data( $snapshot_files['configs']['themes'], 'theme' );
 		}
 
-		// Restore Media.
-		$this->restore_media_backup( $snapshot_files['zip'] );
+		if ( 1 === abs( $db_backup_type ) ) {
+			// Restore WP_content.
+			$this->restore_full_backup( $snapshot_files['zip'] );
+		} else {
+			// Restore Media.
+			$this->restore_media_backup( $snapshot_files['zip'] );
+		}
 
 		$this->progress->finish();
 		WP_CLI::success( 'Site restore completed' );
@@ -957,6 +966,29 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( $this->zipData( $wp_content_dir, $destination ) ) {
 			$this->progress->tick();
 		}
+	}
+
+	/**
+	 * Restore full backup.
+	 *
+	 * @param string $wp_content_zip WP_content zip path.
+	 */
+	private function restore_full_backup( $wp_content_zip ) {
+		if ( empty( $wp_content_zip ) ) {
+			return;
+		}
+
+		$wp_content_dir = WP_CONTENT_DIR;
+		// Remove the current files and directories.
+		$directory_iterator_instance = new \RecursiveDirectoryIterator( $wp_content_dir, \FilesystemIterator::SKIP_DOTS );
+		$recursive_iterator_instance = new \RecursiveIteratorIterator( $directory_iterator_instance, \RecursiveIteratorIterator::CHILD_FIRST );
+		foreach ( $recursive_iterator_instance as $resource_to_be_removed ) {
+			$resource_to_be_removed->isDir() ? rmdir( $resource_to_be_removed ) : unlink( $resource_to_be_removed );
+		}
+
+		WP_CLI::log( 'Restoring media backup...' );
+		$this->unZipData( $wp_content_zip, $wp_content_dir );
+		$this->progress->tick();
 	}
 
 }

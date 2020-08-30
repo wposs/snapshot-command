@@ -129,19 +129,30 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function create( $args, $assoc_args ) {
-		$this->start_progress_bar( 'Creating Backup', 5 );
-		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only', true );
+		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
+
+		if ( empty( $this->backup_type ) ) {
+			$this->start_progress_bar( 'Creating Backup', 4 );
+		} else {
+			$this->start_progress_bar( 'Creating Backup', 5 );
+		}
 
 		// Create necessary directories.
 		$this->initiate_backup( $assoc_args );
 		// Create Database backup.
 		$this->create_db_backup();
-		// Create Media backup.
-		$this->create_uploads_backup();
-		// Create Plugins backup.
-		$this->create_plugins_backup();
-		// Create Themes backup.
-		$this->create_themes_backup();
+
+		if ( empty( $this->backup_type ) ) {
+			// Create wp-content backup.
+			$this->create_wp_content_backup();
+		} else {
+			// Create Media backup.
+			$this->create_uploads_backup();
+			// Create Plugins backup.
+			$this->create_plugins_backup();
+			// Create Themes backup.
+			$this->create_themes_backup();
+		}
 
 		// Store all config data in database.
 		$name = Utils\get_flag_value( $assoc_args, 'name', $this->current_snapshots_dir );
@@ -935,6 +946,17 @@ class SnapshotCommand extends WP_CLI_Command {
 	 */
 	private function start_progress_bar( $message, $count ) {
 		$this->progress = Utils\make_progress_bar( $message, $count );
+	}
+
+	/**
+	 * Create wp-content backup for the given WordPress installation.
+	 */
+	private function create_wp_content_backup() {
+		$wp_content_dir = WP_CONTENT_DIR;
+		$destination    = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . Utils\trailingslashit( $this->current_snapshots_dir ) . 'wp-content.zip';
+		if ( $this->zipData( $wp_content_dir, $destination ) ) {
+			$this->progress->tick();
+		}
 	}
 
 }

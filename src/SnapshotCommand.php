@@ -132,7 +132,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
 
 		if ( empty( $this->backup_type ) ) {
-			$this->start_progress_bar( 'Creating Backup', 3 );
+			$this->start_progress_bar( 'Creating Backup', 4 );
 		} else {
 			$this->start_progress_bar( 'Creating Backup', 5 );
 		}

@@ -267,7 +267,6 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function restore( $args, $assoc_args ) {
-		$this->start_progress_bar( 'Restoring Backup', 4 );
 		$this->snapshot_utils->available_wp_packages(); // Check required packages available or not.
 		$backup_info         = $this->get_backup_info( $args[0] );
 		$snapshot_files      = [];
@@ -276,6 +275,12 @@ class SnapshotCommand extends WP_CLI_Command {
 		$db_backup_type      = $temp_info['backup_type'];
 		unset( $temp_info['backup_type'], $temp_info['backup_zip_size'], $temp_info['created_at'], $temp_info['name'], $temp_info['id'], $temp_info['snapshot_id'] );
 		$assoc_args['fields'] = array_keys( $temp_info );
+
+		if ( 1 === abs( $db_backup_type ) ) {
+			$this->start_progress_bar( 'Restoring Backup', 2 );
+		} else {
+			$this->start_progress_bar( 'Restoring Backup', 4 );
+		}
 
 		// Display a small summary of the backup info.
 		WP_CLI::warning( 'Please check Snapshot information before proceeding...' );
@@ -317,10 +322,11 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		if ( 1 === abs( $db_backup_type ) ) {
 			// Restore WP_content.
-			$this->restore_full_backup( $snapshot_files['zip'] );
+			$this->restore_backup( $snapshot_files['zip'], WP_CONTENT_DIR );
 		} else {
 			// Restore Media.
-			$this->restore_media_backup( $snapshot_files['zip'] );
+			$wp_content_dir = wp_upload_dir();
+			$this->restore_backup( $snapshot_files['zip'], $wp_content_dir['basedir'] );
 		}
 
 		$this->progress->finish();
@@ -590,25 +596,28 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
-	 * Restore media files from zip content.
+	 * Restore files from zip content.
 	 *
-	 * @param string $uploads_zip Uploads zip path.
+	 * @param string $source_zip Source zip path.
+	 * @param string $dest_dir   Destination directory path.
+	 *
+	 * @return void
 	 */
-	private function restore_media_backup( $uploads_zip ) {
-		if ( ! empty( $uploads_zip ) ) {
-			$wp_content_dir = wp_upload_dir();
-
-			// Remove the current files and directories.
-			$directory_iterator_instance = new \RecursiveDirectoryIterator( $wp_content_dir['basedir'], \FilesystemIterator::SKIP_DOTS );
-			$recursive_iterator_instance = new \RecursiveIteratorIterator( $directory_iterator_instance, \RecursiveIteratorIterator::CHILD_FIRST );
-			foreach ( $recursive_iterator_instance as $resource_to_be_removed ) {
-				$resource_to_be_removed->isDir() ? rmdir( $resource_to_be_removed ) : unlink( $resource_to_be_removed );
-			}
-
-			WP_CLI::log( 'Restoring media backup...' );
-			$this->unZipData( $uploads_zip, $wp_content_dir['basedir'] );
-			$this->progress->tick();
+	private function restore_backup( $source_zip, $dest_dir ) {
+		if ( empty( $source_zip ) || empty( $dest_dir ) ) {
+			return;
 		}
+
+		// Remove the current files and directories.
+		$directory_iterator_instance = new \RecursiveDirectoryIterator( $dest_dir, \FilesystemIterator::SKIP_DOTS );
+		$recursive_iterator_instance = new \RecursiveIteratorIterator( $directory_iterator_instance, \RecursiveIteratorIterator::CHILD_FIRST );
+		foreach ( $recursive_iterator_instance as $resource_to_be_removed ) {
+			$resource_to_be_removed->isDir() ? rmdir( $resource_to_be_removed ) : unlink( $resource_to_be_removed );
+		}
+
+		WP_CLI::log( 'Restoring files backup...' );
+		$this->unZipData( $source_zip, $dest_dir );
+		$this->progress->tick();
 	}
 
 	/**
@@ -966,29 +975,6 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( $this->zipData( $wp_content_dir, $destination ) ) {
 			$this->progress->tick();
 		}
-	}
-
-	/**
-	 * Restore full backup.
-	 *
-	 * @param string $wp_content_zip WP_content zip path.
-	 */
-	private function restore_full_backup( $wp_content_zip ) {
-		if ( empty( $wp_content_zip ) ) {
-			return;
-		}
-
-		$wp_content_dir = WP_CONTENT_DIR;
-		// Remove the current files and directories.
-		$directory_iterator_instance = new \RecursiveDirectoryIterator( $wp_content_dir, \FilesystemIterator::SKIP_DOTS );
-		$recursive_iterator_instance = new \RecursiveIteratorIterator( $directory_iterator_instance, \RecursiveIteratorIterator::CHILD_FIRST );
-		foreach ( $recursive_iterator_instance as $resource_to_be_removed ) {
-			$resource_to_be_removed->isDir() ? rmdir( $resource_to_be_removed ) : unlink( $resource_to_be_removed );
-		}
-
-		WP_CLI::log( 'Restoring full backup...' );
-		$this->unZipData( $wp_content_zip, $wp_content_dir );
-		$this->progress->tick();
 	}
 
 }

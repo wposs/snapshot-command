@@ -541,6 +541,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			return;
 		}
 
+		$extension_type = ucfirst( $ext_type );
 		WP_CLI::warning( "Removing currently installed {$ext_type}s" );
 		if ( 'plugin' === $ext_type ) {
 			WP_CLI::runcommand( 'plugin deactivate --all --quiet' );
@@ -559,7 +560,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			$ext_is_active = true === $ext_data['is_active'] ? '--activate' : '';
 
 			if ( false === $ext_is_public ) {
-				WP_CLI::warning( "{ucfirst( $ext_type )} {$ext_name} is not available on WordPress.org, please install from appropriate source" );
+				WP_CLI::warning( "{$extension_type} {$ext_name} is not available on WordPress.org, please install from appropriate source" );
 			} else {
 				WP_CLI::runcommand( "{$ext_type} install {$ext_slug} --version={$ext_version} {$ext_is_active} --quiet" );
 			}

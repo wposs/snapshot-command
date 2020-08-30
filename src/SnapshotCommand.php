@@ -101,7 +101,6 @@ class SnapshotCommand extends WP_CLI_Command {
 		$this->db             = new SnapshotDB();
 		$this->storage        = new SnapshotStorage();
 		$this->snapshot_utils = new WP_CLI\Snapshot\Utils();
-		$this->progress       = Utils\make_progress_bar( 'Creating Backup', 5 );
 
 	}
 
@@ -130,6 +129,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function create( $args, $assoc_args ) {
+		$this->start_progress_bar( 'Creating Backup', 5 );
 		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only', true );
 
 		// Create necessary directories.
@@ -253,6 +253,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function restore( $args, $assoc_args ) {
+		$this->start_progress_bar( 'Restoring Backup', 4 );
 		$this->snapshot_utils->available_wp_packages(); // Check required packages available or not.
 		$backup_info         = $this->get_backup_info( $args[0] );
 		$snapshot_files      = [];
@@ -618,7 +619,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	private function initiate_backup( $assoc_args ) {
 		$this->installation_type = is_multisite() ? 'mu' : '';
 		if ( 'mu' === $this->installation_type && Utils\get_flag_value( $assoc_args, 'config-only', true ) ) {
-			WP_CLI::error( 'Multisite is not supported' );
+			WP_CLI::error( 'Multisite with --config-only flag is not supported.' );
 		}
 
 		$snapshot_name                     = Utils\get_flag_value( $assoc_args, 'name' );
@@ -940,6 +941,18 @@ class SnapshotCommand extends WP_CLI_Command {
 	private function download_wp( $backup_version, $installation_path ) {
 		WP_CLI::log( "Downloading fresh files for WordPress version {$backup_version}" );
 		WP_CLI::runcommand( "core download --version={$backup_version} --path={$installation_path} --force --quiet" );
+	}
+
+	/**
+	 * Start progress bar.
+	 *
+	 * @param string $message Message to show.
+	 * @param int    $count   Number of ticks.
+	 *
+	 * @return void
+	 */
+	private function start_progress_bar( $message, $count ) {
+		$this->progress = Utils\make_progress_bar( $message, $count );
 	}
 
 }

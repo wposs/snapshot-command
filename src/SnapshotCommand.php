@@ -424,7 +424,7 @@ class SnapshotCommand extends WP_CLI_Command {
 					'info_value'      => $info_item_value,
 					'storage_service' => $service,
 				];
-				$this->db->insert( 'snapshot_storage_credentials', $extra_info );
+				$this->db->update_service_configuration( $extra_info );
 			}
 		}
 		WP_CLI::success( "Successfully configured {$service} credentials" );

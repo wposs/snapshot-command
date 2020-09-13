@@ -98,6 +98,72 @@ class SnapshotDB {
 	}
 
 	/**
+	 * Generic method to insert details into the requested table.
+	 *
+	 * @param array $data Column data.
+	 *
+	 * @return mixed
+	 */
+	public function update_service_configuration( $data ) {
+		$table = 'snapshot_storage_credentials';
+
+		$is_aws_config_exist = $this->select(
+			$table,
+			'*',
+			[
+				'storage_service' => $data['storage_service'],
+				'info_key'        => $data['info_key'],
+			]
+		);
+
+		if ( empty( $is_aws_config_exist ) ) {
+			return $this->insert( $table, $data );
+		} else {
+			$fields = '';
+			foreach ( $data as $field_name => $value ) {
+				if ( ! empty( $fields ) ) {
+					$fields .= ',';
+				}
+				$fields .= "$field_name='$value'";
+			}
+
+			$query = "UPDATE $table SET $fields WHERE id={$is_aws_config_exist['id']};";
+			self::$dbo->exec( $query );
+		}
+
+		return self::$dbo->lastInsertRowid();
+	}
+
+	/**
+	 * Select data from database.
+	 *
+	 * @param string $table  Table name.
+	 * @param mixed  $fields List of fields to fetch.
+	 * @param array  $where  Where condition.
+	 * @return void
+	 */
+	public function select( $table, $fields = '*', $where ) {
+
+		if ( is_array( $fields ) ) {
+			$fields = implode( ', ', $fields );
+		}
+
+		$where_condition = '';
+		foreach ( $where as $field => $value ) {
+			if ( ! empty( $where_condition ) ) {
+				$where_condition .= ' AND ';
+			}
+			if ( empty( $where_condition ) ) {
+				$where_condition = 'WHERE';
+			}
+			$where_condition .= " $field='$value'";
+		}
+
+		$query  = "SELECT $fields FROM $table $where_condition;";
+		return self::$dbo->querySingle( $query, true );
+	}
+
+	/**
 	 * Get individual or all snapshots information.
 	 *
 	 * @param int $id Snapshot ID.

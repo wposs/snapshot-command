@@ -114,7 +114,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *
 	 * [--config-only]
 	 * : Store only configuration values WordPress version, Plugin/Theme version.
-	 * * ---
+	 * ---
 	 * default: true
 	 * options:
 	 *   - true
@@ -129,7 +129,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function create( $args, $assoc_args ) {
-		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
+		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only', true );
 
 		if ( empty( $this->backup_type ) ) {
 			$this->start_progress_bar( 'Creating Backup', 5 );

@@ -98,7 +98,7 @@ class SnapshotDB {
 	}
 
 	/**
-	 * Generic method to insert details into the requested table.
+	 * Method to update details in the service storage table.
 	 *
 	 * @param array $data Column data.
 	 *
@@ -107,7 +107,7 @@ class SnapshotDB {
 	public function update_service_configuration( $data ) {
 		$table = 'snapshot_storage_credentials';
 
-		$is_aws_config_exist = $this->select(
+		$does_service_config_exist = $this->select(
 			$table,
 			'*',
 			[
@@ -116,7 +116,7 @@ class SnapshotDB {
 			]
 		);
 
-		if ( empty( $is_aws_config_exist ) ) {
+		if ( empty( $does_service_config_exist ) ) {
 			return $this->insert( $table, $data );
 		} else {
 			$fields = '';
@@ -127,7 +127,7 @@ class SnapshotDB {
 				$fields .= "$field_name='$value'";
 			}
 
-			$query = "UPDATE $table SET $fields WHERE id={$is_aws_config_exist['id']};";
+			$query = "UPDATE $table SET $fields WHERE id={$does_service_config_exist['id']};";
 			self::$dbo->exec( $query );
 		}
 
@@ -150,12 +150,12 @@ class SnapshotDB {
 
 		$where_condition = '';
 		foreach ( $where as $field => $value ) {
-			if ( ! empty( $where_condition ) ) {
-				$where_condition .= ' AND ';
-			}
 			if ( empty( $where_condition ) ) {
 				$where_condition = 'WHERE';
+			} else {
+				$where_condition .= ' AND ';
 			}
+
 			$where_condition .= " $field='$value'";
 		}
 

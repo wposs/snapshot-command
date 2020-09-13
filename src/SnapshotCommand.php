@@ -132,15 +132,17 @@ class SnapshotCommand extends WP_CLI_Command {
 		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
 
 		if ( empty( $this->backup_type ) ) {
-			$this->start_progress_bar( 'Creating Backup', 4 );
+			$this->start_progress_bar( 'Creating Backup', 5 );
 			$db_backup_type = 1;
 		} else {
-			$this->start_progress_bar( 'Creating Backup', 5 );
+			$this->start_progress_bar( 'Creating Backup', 6 );
 			$db_backup_type = 0;
 		}
 
 		// Create necessary directories.
 		$this->initiate_backup( $assoc_args );
+		// Create snapshot config.
+		$this->create_snapshot_config();
 		// Create Database backup.
 		$this->create_db_backup();
 
@@ -975,6 +977,19 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( $this->zipData( $wp_content_dir, $destination ) ) {
 			$this->progress->tick();
 		}
+	}
+
+	/**
+	 * Create a snapshot config for the snapshot.
+	 */
+	private function create_snapshot_config() {
+		WP_CLI::log( 'Creating snapshot config file...' );
+		$snapshot_info = [
+			'backup_time' => time(),
+			'hash'        => md5( time() . 'wp-snapshot-command' ),
+		];
+		$this->write_config_to_file( $this->config_dir, 'snapshot-details', $snapshot_info );
+		$this->progress->tick();
 	}
 
 }

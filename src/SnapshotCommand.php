@@ -8,6 +8,7 @@ use WP_CLI\Utils;
 use WP_CLI\Formatter;
 use ZipArchive;
 use function cli\prompt;
+use function GuzzleHttp\Psr7\str;
 
 /**
  * Backup / Restore WordPress installation
@@ -244,7 +245,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			} else {
 				$snapshot_list[ $id ]['backup_type'] = 'file';
 			}
-			$snapshot_list[ $id ]['created_at'] = gmdate( 'Y-m-d\TH:i:s\Z', $snapshot_list[ $id ]['created_at'] );
+			$snapshot_list[ $id ]['created_at'] = gmdate( 'jS M Y g:i:s A', $snapshot_list[ $id ]['created_at'] );
 		}
 		$formatter = new Formatter(
 			$assoc_args,

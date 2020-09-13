@@ -499,6 +499,8 @@ class SnapshotCommand extends WP_CLI_Command {
 
 			if ( true === $upload_complete ) {
 				WP_CLI::success( "Successfully uploaded {$backup_info['name']}.zip to S3 bucket: {$bucket_name}" );
+				WP_CLI::confirm( 'Would you like to remove snapshot from your system?' );
+				WP_CLI::runcommand( "snapshot delete {$backup_info['id']}" );
 			} else {
 				WP_CLI::error( 'Upload error, something went wrong' );
 			}

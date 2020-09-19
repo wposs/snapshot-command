@@ -101,5 +101,36 @@ class SnapshotStorage {
 
 		return false;
 	}
-}
 
+	/**
+	 * Function to pull snapshot.
+	 *
+	 * @param array $backup_info Backup details.
+	 *
+	 * @return bool
+	 */
+	public function pull_snapshot( $backup_info ) {
+
+		try {
+			$result = $this->s3_instance->getObject(
+				[
+					'Bucket'     => $backup_info['bucket_name'],
+					'Key'        => \WP_CLI\Utils\basename( $backup_info['backup_path'] ),
+					'SaveAs'     => $backup_info['backup_path'],
+					'@http'      => [
+						'progress' => function ( $download_total_size, $download_size_so_far, $upload_total_size, $upload_size_so_far ) {
+							if ( ! empty( $upload_total_size ) ) {
+								$progress_percentage = number_format( ( $upload_size_so_far / $upload_total_size ) * 100, 2 ) . '%';
+								\WP_CLI::log( "Upload Progress : {$progress_percentage}" . PHP_EOL );
+							}
+						},
+					],
+				]
+			);
+			return true;
+		} catch ( S3Exception $e ) {
+			\WP_CLI::log( $e->getMessage() );
+			return false;
+		}
+	}
+}

@@ -115,7 +115,7 @@ class SnapshotStorage {
 			$result = $this->s3_instance->getObject(
 				[
 					'Bucket'     => $backup_info['bucket_name'],
-					'Key'        => \WP_CLI\Utils\basename( $backup_info['backup_path'] ),
+					'Key'        => $backup_info['key'],
 					'SaveAs'     => $backup_info['backup_path'],
 					'@http'      => [
 						'progress' => function ( $download_total_size, $download_size_so_far, $upload_total_size, $upload_size_so_far ) {

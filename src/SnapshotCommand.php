@@ -1085,21 +1085,25 @@ class SnapshotCommand extends WP_CLI_Command {
 			]
 		);
 
+		$new_filename = basename( $snapshot_name, '.zip' );
+		$new_filename = $new_filename . '-' . time() . '.zip';
+
 		// Pull the zip file from S3 bucket.
 		$pull_complete = $this->storage->pull_snapshot(
 			[
 				'bucket_name' => $bucket_name,
+				'key'         => $snapshot_name,
 				'backup_path' => sprintf(
 					'%s%s',
 					Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
-					$snapshot_name
+					$new_filename
 				),
 			]
 		);
 
 		if ( true === $pull_complete ) {
-			WP_CLI::log( "Successfully downloaded {$snapshot_name} from S3 bucket: {$bucket_name}" );
-			$this->create_snapshot_record( $snapshot_name );
+			WP_CLI::log( "Successfully downloaded {$new_filename} from S3 bucket: {$bucket_name}" );
+			$this->create_snapshot_record( $new_filename );
 		} else {
 			WP_CLI::error( 'Download error, something went wrong.' );
 		}

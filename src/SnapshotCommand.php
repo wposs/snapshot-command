@@ -166,7 +166,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			$this->progress->tick();
 		}
 
-		$zip_size_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' ) ) ) * 1024;
+		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' );
 		$snapshot_id       = $this->create_snapshot(
 			[
 				'name'            => $name,
@@ -178,7 +178,7 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		if ( ! empty( $snapshot_id ) ) {
 			$upload_dir       = wp_upload_dir();
-			$uploads_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( $upload_dir['basedir'] ) ) ) * 1024;
+			$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
 			$this->create_snapshot_extra_info(
 				[
 					'core_version' => $GLOBALS['wp_version'],
@@ -996,7 +996,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		$upload_dir       = wp_upload_dir();
-		$uploads_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( $upload_dir['basedir'] ) ) ) * 1024;
+		$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
 		$snapshot_info    = [
 			'core_version' => $GLOBALS['wp_version'],
 			'core_type'    => is_multisite() ? 'multisite' : 'standard',
@@ -1018,7 +1018,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
-	 * Pull the snapshot to an external storage service.
+	 * Pull snapshot from an external storage service.
 	 *
 	 * <filename>
 	 * : Filename of Snapshot to pull from external service.
@@ -1041,7 +1041,6 @@ class SnapshotCommand extends WP_CLI_Command {
 	 */
 	public function pull( $args, $assoc_args ) {
 
-		//$backup_info  = $this->get_backup_info( $args[0] );
 		$service      = Utils\get_flag_value( $assoc_args, 'service' );
 		$service_info = $this->storage->get_storage_service_info( $service );
 
@@ -1127,11 +1126,11 @@ class SnapshotCommand extends WP_CLI_Command {
 		$this->snapshot_config_data = $this->get_snapshot_file_data( $filename );
 		if ( false === $this->verify_downloaded_zip() ) {
 			unlink( $downloaded_file_path );
-			WP_CLI::error( 'Invalid snapshot zip.' );
+			WP_CLI::error( 'Invalid Snapshot: Zip provided not created by snapshot-command.' );
 		}
 		WP_CLI::log( 'Downloaded zip verified.' );
 		WP_CLI::log( 'Creating record in database...' );
-		$zip_size_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' ) ) ) * 1024;
+		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' );
 		$snapshot_id       = $this->create_snapshot(
 			[
 				'name'            => $filename,

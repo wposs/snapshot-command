@@ -130,7 +130,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	public function create( $args, $assoc_args ) {
 		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
 
-		if ( empty( $this->backup_type ) ) {
+		if ( true === $this->backup_type ) {
 			$this->start_progress_bar( 'Creating Backup', 6 );
 			$db_backup_type = 1;
 		} else {
@@ -239,9 +239,9 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		foreach ( $snapshot_list as $id => $snapshot ) {
 			if ( 0 === abs( $snapshot['backup_type'] ) ) {
-				$snapshot_list[ $id ]['backup_type'] = 'config';
-			} else {
 				$snapshot_list[ $id ]['backup_type'] = 'file';
+			} else {
+				$snapshot_list[ $id ]['backup_type'] = 'config';
 			}
 			$snapshot_list[ $id ]['created_at'] = gmdate( 'jS M Y g:i:s A', $snapshot_list[ $id ]['created_at'] );
 		}
@@ -759,7 +759,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( null === $plugin_data['slug'] ) {
 			WP_CLI::warning( "Skipping {$plugin_detail['Name']}: Plugin not available on WordPress.org" );
 			if ( $this->backup_type ) {
-				WP_CLI::log( 'Consider running the command with --config-only=false to backup private Plugin/Theme' );
+				WP_CLI::log( 'Consider running the command without --config-only flag to backup private Plugin/Theme' );
 			}
 			$plugin_data['is_public'] = false;
 		}
@@ -833,7 +833,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( ! $this->is_theme_public( $name ) ) {
 			WP_CLI::warning( "Skipping {$name} : Theme not available on WordPress.org" );
 			if ( $this->backup_type ) {
-				WP_CLI::log( 'Consider running the command with --config-only=false to backup private Plugin/Theme' );
+				WP_CLI::log( 'Consider running the command without --config-only flag to backup private Plugin/Theme' );
 			}
 			$theme_data['is_public'] = false;
 		}
@@ -1135,7 +1135,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			[
 				'name'            => $filename,
 				'created_at'      => time(),
-				'backup_type'     => ( 'file' === $this->snapshot_config_data ) ? 0 : 1,
+				'backup_type'     => ( 'file' === $this->snapshot_config_data['backup_type'] ) ? 0 : 1,
 				'backup_zip_size' => size_format( $zip_size_in_bytes ),
 			]
 		);
@@ -1168,22 +1168,16 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		// Store all required data for restoring.
 		foreach ( $zip_content as $snapshot_content ) {
-			$snapshot_content_ext = pathinfo( $snapshot_content, PATHINFO_EXTENSION );
-			if ( 'json' !== $snapshot_content_ext ) {
-				continue;
-			}
-
 			$filename = basename( $snapshot_content );
-			if ( 'snapshot-details.json' !== $filename ) {
-				continue;
+			if ( 'snapshot-details.json' === $filename ) {
+				$file_data = json_decode( file_get_contents( $snapshot_content ), true );
+				if ( ! empty( $file_data ) ) {
+					return $file_data;
+				}
 			}
-
-			$file_data = json_decode( file_get_contents( $snapshot_content ), true );
-			if ( empty( $file_data ) ) {
-				return false;
-			}
-			return $file_data;
 		}
+
+		return [];
 	}
 
 	/**

@@ -4,6 +4,8 @@
 namespace WP_CLI\Snapshot;
 
 use Aws\Sdk;
+use Aws\Exception\AwsException;
+use Aws\S3\Exception\S3Exception;
 
 class SnapshotStorage {
 
@@ -129,7 +131,14 @@ class SnapshotStorage {
 			);
 			return true;
 		} catch ( S3Exception $e ) {
+			// Catch an S3 specific exception.
 			\WP_CLI::log( $e->getMessage() );
+			return false;
+		} catch ( AwsException $e ) {
+			// Catch any AWS specific exception.
+			\WP_CLI::log( $e->getAwsRequestId() );
+			\WP_CLI::log( $e->getAwsErrorType() );
+			\WP_CLI::log( $e->getAwsErrorCode() );
 			return false;
 		}
 	}

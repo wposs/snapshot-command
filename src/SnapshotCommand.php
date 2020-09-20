@@ -1164,7 +1164,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @return mixed
 	 */
 	private function get_snapshot_file_data( $snapshot_name ) {
-		$zip_content   = $this->get_zip_contents( $snapshot_name ); // Get all the backup zip content.
+		$zip_content = $this->get_zip_contents( $snapshot_name ); // Get all the backup zip content.
 
 		// Store all required data for restoring.
 		foreach ( $zip_content as $snapshot_content ) {

@@ -4,6 +4,8 @@
 namespace WP_CLI\Snapshot;
 
 use Aws\Sdk;
+use Aws\Exception\AwsException;
+use Aws\S3\Exception\S3Exception;
 
 class SnapshotStorage {
 
@@ -101,5 +103,43 @@ class SnapshotStorage {
 
 		return false;
 	}
-}
 
+	/**
+	 * Function to pull snapshot.
+	 *
+	 * @param array $backup_info Backup details.
+	 *
+	 * @return bool
+	 */
+	public function pull_snapshot( $backup_info ) {
+
+		try {
+			$result = $this->s3_instance->getObject(
+				[
+					'Bucket'     => $backup_info['bucket_name'],
+					'Key'        => $backup_info['key'],
+					'SaveAs'     => $backup_info['backup_path'],
+					'@http'      => [
+						'progress' => function ( $download_total_size, $download_size_so_far, $upload_total_size, $upload_size_so_far ) {
+							if ( ! empty( $upload_total_size ) ) {
+								$progress_percentage = number_format( ( $upload_size_so_far / $upload_total_size ) * 100, 2 ) . '%';
+								\WP_CLI::log( "Upload Progress : {$progress_percentage}" . PHP_EOL );
+							}
+						},
+					],
+				]
+			);
+			return true;
+		} catch ( S3Exception $e ) {
+			// Catch an S3 specific exception.
+			\WP_CLI::log( $e->getMessage() );
+			return false;
+		} catch ( AwsException $e ) {
+			// Catch any AWS specific exception.
+			\WP_CLI::log( $e->getAwsRequestId() );
+			\WP_CLI::log( $e->getAwsErrorType() );
+			\WP_CLI::log( $e->getAwsErrorCode() );
+			return false;
+		}
+	}
+}

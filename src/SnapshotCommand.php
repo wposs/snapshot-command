@@ -115,35 +115,33 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *
 	 * [--config-only]
 	 * : Store only configuration values WordPress version, Plugin/Theme version.
-	 * ---
-	 * default: true
-	 * options:
-	 *   - true
-	 *   - false
-	 * ---
 	 *
 	 * ## EXAMPLES
 	 *
+	 *     # Create file/full snapshot.
 	 *     $ wp snapshot create
+	 *
+	 *     # Create config snapshot. Will not work with 3rd party themes/plugins.
+	 *     $ wp snapshot create --config-only
 	 *
 	 * @when  after_wp_load
 	 * @throws WP_CLI\ExitException
 	 */
 	public function create( $args, $assoc_args ) {
-		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only', true );
+		$this->backup_type = Utils\get_flag_value( $assoc_args, 'config-only' );
 
-		if ( empty( $this->backup_type ) ) {
-			$this->start_progress_bar( 'Creating Backup', 5 );
+		if ( true === $this->backup_type ) {
+			$this->start_progress_bar( 'Creating Backup', 6 );
 			$db_backup_type = 1;
 		} else {
-			$this->start_progress_bar( 'Creating Backup', 6 );
+			$this->start_progress_bar( 'Creating Backup', 5 );
 			$db_backup_type = 0;
 		}
 
 		// Create necessary directories.
 		$this->initiate_backup( $assoc_args );
 		// Create snapshot config.
-		$this->create_snapshot_config();
+		$this->create_snapshot_config( $this->backup_type );
 		// Create Database backup.
 		$this->create_db_backup();
 
@@ -168,7 +166,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			$this->progress->tick();
 		}
 
-		$zip_size_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' ) ) ) * 1024;
+		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' );
 		$snapshot_id       = $this->create_snapshot(
 			[
 				'name'            => $name,
@@ -180,7 +178,7 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		if ( ! empty( $snapshot_id ) ) {
 			$upload_dir       = wp_upload_dir();
-			$uploads_in_bytes = doubleval( shell_exec( 'du -sk ' . escapeshellarg( $upload_dir['basedir'] ) ) ) * 1024;
+			$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
 			$this->create_snapshot_extra_info(
 				[
 					'core_version' => $GLOBALS['wp_version'],
@@ -241,9 +239,9 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		foreach ( $snapshot_list as $id => $snapshot ) {
 			if ( 0 === abs( $snapshot['backup_type'] ) ) {
-				$snapshot_list[ $id ]['backup_type'] = 'config';
-			} else {
 				$snapshot_list[ $id ]['backup_type'] = 'file';
+			} else {
+				$snapshot_list[ $id ]['backup_type'] = 'config';
 			}
 			$snapshot_list[ $id ]['created_at'] = gmdate( 'jS M Y g:i:s A', $snapshot_list[ $id ]['created_at'] );
 		}
@@ -434,7 +432,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	}
 
 	/**
-	 * Push the snapshot to an external sotrage service.
+	 * Push the snapshot to an external storage service.
 	 *
 	 * <id>
 	 * : ID / Name of Snapshot to inspect.
@@ -761,7 +759,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( null === $plugin_data['slug'] ) {
 			WP_CLI::warning( "Skipping {$plugin_detail['Name']}: Plugin not available on WordPress.org" );
 			if ( $this->backup_type ) {
-				WP_CLI::log( 'Consider running the command with --config-only=false to backup private Plugin/Theme' );
+				WP_CLI::log( 'Consider running the command without --config-only flag to backup private Plugin/Theme' );
 			}
 			$plugin_data['is_public'] = false;
 		}
@@ -835,7 +833,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		if ( ! $this->is_theme_public( $name ) ) {
 			WP_CLI::warning( "Skipping {$name} : Theme not available on WordPress.org" );
 			if ( $this->backup_type ) {
-				WP_CLI::log( 'Consider running the command with --config-only=false to backup private Plugin/Theme' );
+				WP_CLI::log( 'Consider running the command without --config-only flag to backup private Plugin/Theme' );
 			}
 			$theme_data['is_public'] = false;
 		}
@@ -984,15 +982,224 @@ class SnapshotCommand extends WP_CLI_Command {
 
 	/**
 	 * Create a snapshot config for the snapshot.
+	 *
+	 * @param int $backup_type Backup type.
+	 *
+	 * @return void
 	 */
-	private function create_snapshot_config() {
+	private function create_snapshot_config( $backup_type ) {
 		WP_CLI::log( 'Creating snapshot config file...' );
-		$snapshot_info = [
-			'backup_time' => time(),
-			'hash'        => md5( time() . 'wp-snapshot-command' ),
+
+		$bkp_type = 'file';
+		if ( true === $backup_type ) {
+			$bkp_type = 'config';
+		}
+
+		$upload_dir       = wp_upload_dir();
+		$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
+		$snapshot_info    = [
+			'core_version' => $GLOBALS['wp_version'],
+			'core_type'    => is_multisite() ? 'multisite' : 'standard',
+			'db_size'      => size_format(
+				$GLOBALS['wpdb']->get_var(
+					$GLOBALS['wpdb']->prepare(
+						"SELECT SUM(data_length + index_length) FROM information_schema.TABLES where table_schema = '%s' GROUP BY table_schema;",
+						DB_NAME
+					)
+				)
+			),
+			'uploads_size' => size_format( $uploads_in_bytes ),
+			'backup_time'  => time(),
+			'hash'         => md5( time() . 'wp-snapshot-command-' . $bkp_type ),
+			'backup_type'  => $bkp_type,
 		];
 		$this->write_config_to_file( $this->config_dir, 'snapshot-details', $snapshot_info );
 		$this->progress->tick();
+	}
+
+	/**
+	 * Pull snapshot from an external storage service.
+	 *
+	 * <filename>
+	 * : Filename of Snapshot to pull from external service.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--service=<service>]
+	 * : Third party storage service to pull backup zip.
+	 * ---
+	 * default: aws
+	 * options:
+	 *   - aws
+	 * ---
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     $ wp snapshot pull snapshot-2020-08-29-2d8c5ce.zip --service=aws
+	 *
+	 * @throws WP_CLI\ExitException
+	 */
+	public function pull( $args, $assoc_args ) {
+
+		$service      = Utils\get_flag_value( $assoc_args, 'service' );
+		$service_info = $this->storage->get_storage_service_info( $service );
+
+		// Make sure we have required data to proceed.
+		if ( empty( $service_info ) ) {
+			WP_CLI::error( 'Please configure your service using wp snapshot configure --service=<service_name>' );
+		}
+
+		// Handle backup push based on service type.
+		if ( 'aws' === $service ) {
+			$this->pull_snapshot_from_s3( $args, $service_info );
+		}
+
+	}
+
+	/**
+	 * Function to pull snapshot from S3.
+	 *
+	 * @param array $args         Command arguments.
+	 * @param array $service_info S3 credentials.
+	 *
+	 * @return void
+	 */
+	private function pull_snapshot_from_s3( $args, $service_info ) {
+		$snapshot_name = $args[0];
+		$bucket_name   = prompt( 'Please enter a S3 bucket name', false, ': ' );
+		$bucket_region = prompt( 'Please enter a S3 bucket region', false, ': ' );
+		if ( empty( $bucket_name ) ) {
+			WP_CLI::error( 'Please provide a S3 bucket name' );
+		}
+		if ( empty( $bucket_region ) ) {
+			WP_CLI::error( 'Please provide a S3 bucket region' );
+		}
+
+		// Initialize the s3 instance.
+		$this->storage->initialize_s3(
+			[
+				'region' => $bucket_region,
+				'key'    => $service_info['aws_key'],
+				'secret' => $service_info['aws_secret'],
+			]
+		);
+
+		$new_filename = basename( $snapshot_name, '.zip' );
+		$new_filename = $new_filename . '-' . time() . '.zip';
+
+		// Pull the zip file from S3 bucket.
+		$pull_complete = $this->storage->pull_snapshot(
+			[
+				'bucket_name' => $bucket_name,
+				'key'         => $snapshot_name,
+				'backup_path' => sprintf(
+					'%s%s',
+					Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
+					$new_filename
+				),
+			]
+		);
+
+		if ( true === $pull_complete ) {
+			WP_CLI::log( "Successfully downloaded {$new_filename} from S3 bucket: {$bucket_name}" );
+			$this->create_snapshot_record( $new_filename );
+		} else {
+			WP_CLI::error( 'Download error, something went wrong.' );
+		}
+	}
+
+	/**
+	 * Function to create snapshot record in database.
+	 *
+	 * @param string $snapshot_name File name of downloaded snapshot from S3.
+	 *
+	 * @return void
+	 */
+	private function create_snapshot_record( $snapshot_name ) {
+		WP_CLI::log( 'Verifying downloaded zip...' );
+		$downloaded_file_path = sprintf(
+			'%s%s',
+			Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
+			$snapshot_name
+		);
+		$filename                   = basename( $snapshot_name, '.zip' ); // Snapshot name.
+		$this->snapshot_config_data = $this->get_snapshot_file_data( $filename );
+		if ( false === $this->verify_downloaded_zip() ) {
+			unlink( $downloaded_file_path );
+			WP_CLI::error( 'Invalid Snapshot: Zip provided not created by snapshot-command.' );
+		}
+		WP_CLI::log( 'Downloaded zip verified.' );
+		WP_CLI::log( 'Creating record in database...' );
+		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' );
+		$snapshot_id       = $this->create_snapshot(
+			[
+				'name'            => $filename,
+				'created_at'      => time(),
+				'backup_type'     => ( 'file' === $this->snapshot_config_data['backup_type'] ) ? 0 : 1,
+				'backup_zip_size' => size_format( $zip_size_in_bytes ),
+			]
+		);
+
+		if ( ! empty( $snapshot_id ) ) {
+			WP_CLI::log( 'Record created successfully.' );
+			$this->create_snapshot_extra_info(
+				[
+					'core_version' => $this->snapshot_config_data['core_version'],
+					'core_type'    => $this->snapshot_config_data['core_type'],
+					'db_size'      => $this->snapshot_config_data['db_size'],
+					'uploads_size' => $this->snapshot_config_data['uploads_size'],
+					'snapshot_id'  => $snapshot_id,
+				],
+				$snapshot_id
+			);
+			WP_CLI::log( "Run `wp snapshot restore $snapshot_id` to restore this backup." );
+		}
+	}
+
+	/**
+	 * Function to get file snapshot config file data.
+	 *
+	 * @param string $snapshot_name Snapshot name.
+	 *
+	 * @return mixed
+	 */
+	private function get_snapshot_file_data( $snapshot_name ) {
+		$zip_content = $this->get_zip_contents( $snapshot_name ); // Get all the backup zip content.
+
+		// Store all required data for restoring.
+		foreach ( $zip_content as $snapshot_content ) {
+			$filename = basename( $snapshot_content );
+			if ( 'snapshot-details.json' === $filename ) {
+				$file_data = json_decode( file_get_contents( $snapshot_content ), true );
+				if ( ! empty( $file_data ) ) {
+					return $file_data;
+				}
+			}
+		}
+
+		return [];
+	}
+
+	/**
+	 * Function to verify zip download.
+	 *
+	 * @return bool
+	 */
+	private function verify_downloaded_zip() {
+		if (
+			empty( $this->snapshot_config_data ) ||
+			empty( $this->snapshot_config_data['backup_time'] ) ||
+			empty( $this->snapshot_config_data['hash'] ) ||
+			empty( $this->snapshot_config_data['backup_type'] )
+		) {
+			return false;
+		}
+
+		$create_file_hash = md5( $this->snapshot_config_data['backup_time'] . 'wp-snapshot-command-' . $this->snapshot_config_data['backup_type'] );
+		if ( $create_file_hash === $this->snapshot_config_data['hash'] ) {
+			return true;
+		}
+		return false;
 	}
 
 }

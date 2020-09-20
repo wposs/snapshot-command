@@ -99,4 +99,20 @@ class Utils {
 		WP_CLI::error( 'Snapshot command requires above packages to be installed.' );
 	}
 
+	/**
+	 * Get file size in bytes.
+	 *
+	 * @param string $file_path File path.
+	 *
+	 * @return int
+	 */
+	public function size_in_bytes( $file_path ) {
+
+		if ( empty( $file_path ) ) {
+			return 0;
+		}
+
+		return doubleval( shell_exec( 'du -sk ' . escapeshellarg( $file_path ) ) ) * 1024;
+	}
+
 }

@@ -447,6 +447,9 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *   - aws
 	 * ---
 	 *
+	 * [--alias=<alias>]
+	 * : Name of the remote where the snapshot should be pushed.
+	 *
 	 * ## EXAMPLES
 	 *
 	 *     $ wp snapshot push 1 --service=aws
@@ -457,15 +460,16 @@ class SnapshotCommand extends WP_CLI_Command {
 	public function push( $args, $assoc_args ) {
 		$backup_info  = $this->get_backup_info( $args[0] );
 		$service      = Utils\get_flag_value( $assoc_args, 'service' );
+		$alias_name   = Utils\get_flag_value( $assoc_args, 'alias' );
 		$service_info = $this->storage->get_storage_service_info( $service );
 
 		// Make sure we have required data to proceed.
-		if ( empty( $service_info ) ) {
+		if ( ! empty( $alias_name ) && empty( $service_info ) ) {
 			WP_CLI::error( 'Please configure your service using wp snapshot configure --service=<service_name>' );
 		}
 
 		// Handle backup push based on service type.
-		if ( 'aws' === $service ) {
+		if ( empty( $alias_name ) && 'aws' === $service ) {
 			$bucket_name   = prompt( 'Please enter a S3 bucket name', false, ': ' );
 			$bucket_region = prompt( 'Please enter a S3 bucket region', false, ': ' );
 			if ( empty( $bucket_name ) ) {
@@ -502,6 +506,42 @@ class SnapshotCommand extends WP_CLI_Command {
 				WP_CLI::runcommand( "snapshot delete {$backup_info['id']}" );
 			} else {
 				WP_CLI::error( 'Upload error, something went wrong' );
+			}
+		}
+
+		// Rsync the zip file to remote.
+		if ( ! empty( $alias_name ) ) {
+			$aliases    = WP_CLI::get_runner()->aliases;
+
+			if ( empty( $aliases[ $alias_name ] ) ) {
+				WP_CLI::error( "No alias found with key '{$alias_name}'." );
+			}
+
+			$alias_info = $aliases[ $alias_name ];
+			$ssh_string = empty( $alias_info['ssh'] ) ? '' : $alias_info['ssh'];
+			$ssh_info   = Utils\parse_ssh_url( $ssh_string );
+
+			if ( empty( $ssh_info ) ) {
+				WP_CLI::error( "Unable to parse SSH connection string for alias {$alias_name}" );
+			}
+
+			$ssh_user = $ssh_info['user'];
+			$ssh_host = $ssh_info['host'];
+
+			$backup_path = sprintf(
+				'%s%s.zip',
+				Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
+				$backup_info['name']
+			);
+
+			// @todo add command to execute wp snapshot pull and create record.
+			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip &&";
+
+			passthru( $rsync_command, $exit_code );
+			if ( 255 === $exit_code ) {
+				WP_CLI::error( 'Cannot connect over SSH using provided configuration.', 255 );
+			} else {
+				exit( $exit_code );
 			}
 		}
 	}

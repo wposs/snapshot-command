@@ -1084,6 +1084,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *     # This is for handling pushing to aliases.
 	 *     $ wp snapshot pull snapshot-2020-08-29-2d8c5ce.zip --service=local
 	 *
+	 * @when       before_wp_load
 	 * @throws WP_CLI\ExitException
 	 */
 	public function pull( $args, $assoc_args ) {

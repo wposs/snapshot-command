@@ -1,4 +1,4 @@
-wp-cli/snapshot-command
+wposs/snapshot-command
 =======================
 
 # WIP

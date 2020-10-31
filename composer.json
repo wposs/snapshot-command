@@ -1,8 +1,8 @@
 {
-  "name": "wp-cli/snapshot-command",
+  "name": "wposs/snapshot-command",
   "type": "wp-cli-package",
   "description": "Backup / Restore WordPress installation",
-  "homepage": "https://github.com/thrijith/snapshot-command",
+  "homepage": "https://github.com/wposs/snapshot-command",
   "license": "MIT",
   "authors": [
     {
@@ -65,6 +65,6 @@
     ]
   },
   "support": {
-    "issues": "https://github.com/thrijith/snapshot-command/issues"
+    "issues": "https://github.com/wposs/snapshot-command/issues"
   }
 }

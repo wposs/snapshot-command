@@ -452,7 +452,11 @@ class SnapshotCommand extends WP_CLI_Command {
 	 *
 	 * ## EXAMPLES
 	 *
+	 *     # Push snapshot to AWS.
 	 *     $ wp snapshot push 1 --service=aws
+	 *
+	 *     # Push snapshot to remote path via alias.
+	 *     $ wp snapshot push 2 --alias=@staging
 	 *
 	 * @when       before_wp_load
 	 * @throws WP_CLI\ExitException
@@ -534,8 +538,7 @@ class SnapshotCommand extends WP_CLI_Command {
 				$backup_info['name']
 			);
 
-			// @todo add command to execute wp snapshot pull and create record.
-			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip &&";
+			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip && wp snapshot pull /tmp/{$backup_info['name']}.zip --service=local";
 
 			passthru( $rsync_command, $exit_code );
 			if ( 255 === $exit_code ) {
@@ -1071,11 +1074,15 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * default: aws
 	 * options:
 	 *   - aws
+	 *   - local
 	 * ---
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     $ wp snapshot pull snapshot-2020-08-29-2d8c5ce.zip --service=aws
+	 *
+	 *     # This is for handling pushing to aliases.
+	 *     $ wp snapshot pull snapshot-2020-08-29-2d8c5ce.zip --service=local
 	 *
 	 * @throws WP_CLI\ExitException
 	 */
@@ -1092,6 +1099,8 @@ class SnapshotCommand extends WP_CLI_Command {
 		// Handle backup push based on service type.
 		if ( 'aws' === $service ) {
 			$this->pull_snapshot_from_s3( $args, $service_info );
+		} elseif ( 'local' === $service ) {
+			$this->create_snapshot_record( $args[0], 'local' );
 		}
 
 	}
@@ -1152,16 +1161,22 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * Function to create snapshot record in database.
 	 *
 	 * @param string $snapshot_name File name of downloaded snapshot from S3.
+	 * @param string $type          This is to create record from a path.
 	 *
 	 * @return void
 	 */
-	private function create_snapshot_record( $snapshot_name ) {
+	private function create_snapshot_record( $snapshot_name, $type = 'service' ) {
 		WP_CLI::log( 'Verifying downloaded zip...' );
-		$downloaded_file_path = sprintf(
-			'%s%s',
-			Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
-			$snapshot_name
-		);
+		if ( 'local' === $type ) {
+			$downloaded_file_path = $snapshot_name;
+		} else {
+			$downloaded_file_path = sprintf(
+				'%s%s',
+				Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ),
+				$snapshot_name
+			);
+		}
+
 		$filename                   = basename( $snapshot_name, '.zip' ); // Snapshot name.
 		$this->snapshot_config_data = $this->get_snapshot_file_data( $filename );
 		if ( false === $this->verify_downloaded_zip() ) {

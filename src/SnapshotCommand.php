@@ -99,6 +99,10 @@ class SnapshotCommand extends WP_CLI_Command {
 			throw new \Exception( 'Snapshot command requires ZipArchive.' );
 		}
 
+		if ( ! class_exists( 'SQLite3' ) ) {
+			throw new \Exception( 'Snapshot command requires SQLite3.' );
+		}
+
 		$this->db             = new SnapshotDB();
 		$this->storage        = new SnapshotStorage();
 		$this->snapshot_utils = new WP_CLI\Snapshot\Utils();

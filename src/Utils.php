@@ -5,20 +5,19 @@ namespace WP_CLI\Snapshot;
 use WP_CLI;
 
 class Utils {
-
 	/**
 	 * Installed packages list.
 	 *
 	 * @var array
 	 */
-	protected $installed_packages = [];
+	protected static $installed_packages = [];
 
 	/**
 	 * Required packages list.
 	 *
 	 * @var array
 	 */
-	protected $required_packages = [
+	protected static $required_packages = [
 		'wp-cli/checksum-command' => 'wp package install git@github.com:wp-cli/checksum-command.git',
 	];
 
@@ -27,19 +26,19 @@ class Utils {
 	 *
 	 * @var array
 	 */
-	protected $missing_packages = [];
+	protected static $missing_packages = [];
 
 	/**
 	 * Check available packages list.
 	 *
 	 * @return void
 	 */
-	public function available_wp_packages() {
-		if ( empty( $this->installed_packages ) ) {
-			$this->get_packages_list();
+	public static function available_wp_packages() {
+		if ( empty( self::$installed_packages ) ) {
+			self::get_packages_list();
 		}
 
-		$this->check_missing_packages();
+		self::check_missing_packages();
 	}
 
 	/**
@@ -47,7 +46,7 @@ class Utils {
 	 *
 	 * @return void
 	 */
-	private function get_packages_list() {
+	private static function get_packages_list() {
 		$packages = WP_CLI::runcommand( 'package list --format=json --fields=name', [ 'return' => 'all' ] );
 
 		if ( empty( $packages->stdout ) ) {
@@ -61,7 +60,7 @@ class Utils {
 		}
 
 		foreach ( $packages_raw_list as $package ) {
-			$this->installed_packages[] = $package['name'];
+			self::$installed_packages[] = $package['name'];
 		}
 	}
 
@@ -70,20 +69,20 @@ class Utils {
 	 *
 	 * @return void
 	 */
-	private function check_missing_packages() {
-		foreach ( $this->required_packages as $package_name => $installation_command ) {
-			if ( in_array( $package_name, $this->installed_packages, true ) ) {
+	private static function check_missing_packages() {
+		foreach ( self::$required_packages as $package_name => $installation_command ) {
+			if ( in_array( $package_name, self::$installed_packages, true ) ) {
 				continue;
 			}
 
-			$this->missing_packages[ $package_name ] = $installation_command;
+			self::$missing_packages[ $package_name ] = $installation_command;
 		}
 
-		if ( empty( $this->missing_packages ) ) {
+		if ( empty( self::$missing_packages ) ) {
 			return;
 		}
 
-		$this->show_missing_packages_info();
+		self::show_missing_packages_info();
 	}
 
 	/**
@@ -91,8 +90,8 @@ class Utils {
 	 *
 	 * @return void
 	 */
-	private function show_missing_packages_info() {
-		foreach ( $this->missing_packages as $package_name => $installation_command ) {
+	private static function show_missing_packages_info() {
+		foreach ( self::$missing_packages as $package_name => $installation_command ) {
 			WP_CLI::warning( "Missing '{$package_name}' package. Try '{$installation_command}'." );
 		}
 
@@ -106,8 +105,7 @@ class Utils {
 	 *
 	 * @return int
 	 */
-	public function size_in_bytes( $file_path ) {
-
+	public static function size_in_bytes( $file_path ) {
 		if ( empty( $file_path ) ) {
 			return 0;
 		}

@@ -2,6 +2,7 @@
 
 namespace WP_CLI\Snapshot;
 
+use SebastianBergmann\GlobalState\Snapshot;
 use WP_CLI;
 use WP_CLI_Command;
 use WP_CLI\Utils;
@@ -105,8 +106,6 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		$this->db             = new SnapshotDB();
 		$this->storage        = new SnapshotStorage();
-		$this->snapshot_utils = new WP_CLI\Snapshot\Utils();
-
 	}
 
 	/**
@@ -170,7 +169,7 @@ class SnapshotCommand extends WP_CLI_Command {
 			$this->progress->tick();
 		}
 
-		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' );
+		$zip_size_in_bytes = \WP_CLI\Snapshot\Utils::size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $name . '.zip' );
 		$snapshot_id       = $this->create_snapshot(
 			[
 				'name'            => $name,
@@ -182,7 +181,7 @@ class SnapshotCommand extends WP_CLI_Command {
 
 		if ( ! empty( $snapshot_id ) ) {
 			$upload_dir       = wp_upload_dir();
-			$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
+			$uploads_in_bytes = \WP_CLI\Snapshot\Utils::size_in_bytes( $upload_dir['basedir'] );
 			$this->create_snapshot_extra_info(
 				[
 					'core_version' => $GLOBALS['wp_version'],
@@ -272,7 +271,7 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * @throws WP_CLI\ExitException
 	 */
 	public function restore( $args, $assoc_args ) {
-		$this->snapshot_utils->available_wp_packages(); // Check required packages available or not.
+		\WP_CLI\Snapshot\Utils::available_wp_packages(); // Check required packages available or not.
 		$backup_info         = $this->get_backup_info( $args[0] );
 		$snapshot_files      = [];
 		$extra_snapshot_info = $this->db->get_extra_snapshot_info( $backup_info['id'] );
@@ -543,6 +542,14 @@ class SnapshotCommand extends WP_CLI_Command {
 			);
 
 			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip && wp {$alias_name} snapshot pull /tmp/{$backup_info['name']}.zip --service=local";
+
+			/**
+			 * This is not a clean way to this, need to check another option to do this.
+			 * Add --allow-root to alias command if user is root.
+			 */
+			if ( 'root' === $ssh_user ) {
+				$rsync_command .= ' --allow-root';
+			}
 
 			passthru( $rsync_command, $exit_code );
 			if ( 255 === $exit_code ) {
@@ -1043,7 +1050,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		$upload_dir       = wp_upload_dir();
-		$uploads_in_bytes = $this->snapshot_utils->size_in_bytes( $upload_dir['basedir'] );
+		$uploads_in_bytes = \WP_CLI\Snapshot\Utils::size_in_bytes( $upload_dir['basedir'] );
 		$snapshot_info    = [
 			'core_version' => $GLOBALS['wp_version'],
 			'core_type'    => is_multisite() ? 'multisite' : 'standard',
@@ -1193,7 +1200,7 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 		WP_CLI::log( 'Downloaded zip verified.' );
 		WP_CLI::log( 'Creating record in database...' );
-		$zip_size_in_bytes = $this->snapshot_utils->size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' );
+		$zip_size_in_bytes = \WP_CLI\Snapshot\Utils::size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' );
 		$snapshot_id       = $this->create_snapshot(
 			[
 				'name'            => $filename,

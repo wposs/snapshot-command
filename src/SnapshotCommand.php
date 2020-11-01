@@ -2,14 +2,12 @@
 
 namespace WP_CLI\Snapshot;
 
-use SebastianBergmann\GlobalState\Snapshot;
 use WP_CLI;
 use WP_CLI_Command;
 use WP_CLI\Utils;
 use WP_CLI\Formatter;
 use ZipArchive;
 use function cli\prompt;
-use function GuzzleHttp\Psr7\str;
 
 /**
  * Backup / Restore WordPress installation
@@ -971,15 +969,20 @@ class SnapshotCommand extends WP_CLI_Command {
 	/**
 	 * Get all the contents in a zipped file for further processing.
 	 *
-	 * @param $backup_name
+	 * @param string $backup_name
+	 * @param string $type
 	 *
 	 * @return array|bool
 	 */
-	private function get_zip_contents( $backup_name ) {
+	private function get_zip_contents( $backup_name, $type = 'service' ) {
 		$temp_dir = Utils\get_temp_dir() . uniqid( 'wp-cli-snapshot-restore-', true );
 		mkdir( $temp_dir );
-		$zip = new ZipArchive();
-		$res = $zip->open( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $backup_name . '.zip' );
+		$zip         = new ZipArchive();
+		$backup_file = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $backup_name . '.zip';
+		if ( 'local' === $type ) {
+			$backup_file = $backup_name;
+		}
+		$res = $zip->open( $backup_file );
 		if ( true === $res ) {
 			$zip->extractTo( $temp_dir );
 			$zip->close();
@@ -1230,11 +1233,12 @@ class SnapshotCommand extends WP_CLI_Command {
 	 * Function to get file snapshot config file data.
 	 *
 	 * @param string $snapshot_name Snapshot name.
+	 * @param string $type          This is to create record from a path.
 	 *
 	 * @return mixed
 	 */
-	private function get_snapshot_file_data( $snapshot_name ) {
-		$zip_content = $this->get_zip_contents( $snapshot_name ); // Get all the backup zip content.
+	private function get_snapshot_file_data( $snapshot_name, $type = 'service' ) {
+		$zip_content = $this->get_zip_contents( $snapshot_name, $type ); // Get all the backup zip content.
 
 		// Store all required data for restoring.
 		foreach ( $zip_content as $snapshot_content ) {

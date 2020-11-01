@@ -542,7 +542,7 @@ class SnapshotCommand extends WP_CLI_Command {
 				$backup_info['name']
 			);
 
-			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip && wp snapshot pull /tmp/{$backup_info['name']}.zip --service=local";
+			$rsync_command = "rsync -q {$backup_path} {$ssh_user}@{$ssh_host}:/tmp/{$backup_info['name']}.zip && wp {$alias_name} snapshot pull /tmp/{$backup_info['name']}.zip --service=local";
 
 			passthru( $rsync_command, $exit_code );
 			if ( 255 === $exit_code ) {

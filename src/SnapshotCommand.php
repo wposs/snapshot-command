@@ -1094,11 +1094,14 @@ class SnapshotCommand extends WP_CLI_Command {
 	public function pull( $args, $assoc_args ) {
 
 		$service      = Utils\get_flag_value( $assoc_args, 'service' );
-		$service_info = $this->storage->get_storage_service_info( $service );
 
-		// Make sure we have required data to proceed.
-		if ( empty( $service_info ) ) {
-			WP_CLI::error( 'Please configure your service using wp snapshot configure --service=<service_name>' );
+		if ( 'local' !== $service ) {
+			$service_info = $this->storage->get_storage_service_info( $service );
+
+			// Make sure we have required data to proceed.
+			if ( empty( $service_info ) ) {
+				WP_CLI::error( 'Please configure your service using wp snapshot configure --service=<service_name>' );
+			}
 		}
 
 		// Handle backup push based on service type.

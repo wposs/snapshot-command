@@ -1196,10 +1196,10 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		$filename                   = basename( $snapshot_name, '.zip' ); // Snapshot name.
-		$this->snapshot_config_data = $this->get_snapshot_file_data( $filename );
+		$this->snapshot_config_data = $this->get_snapshot_file_data( $filename, $type );
 		if ( false === $this->verify_downloaded_zip() ) {
 			unlink( $downloaded_file_path );
-			WP_CLI::error( 'Invalid Snapshot: Zip provided not created by snapshot-command.' );
+			WP_CLI::error( 'Invalid Snapshot: Provided zip was not created by snapshot-command.' );
 		}
 		WP_CLI::log( 'Downloaded zip verified.' );
 		WP_CLI::log( 'Creating record in database...' );

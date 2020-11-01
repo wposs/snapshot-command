@@ -1209,7 +1209,7 @@ class SnapshotCommand extends WP_CLI_Command {
 				'name'            => $filename,
 				'created_at'      => time(),
 				'backup_type'     => ( 'file' === $this->snapshot_config_data['backup_type'] ) ? 0 : 1,
-				'backup_zip_size' => size_format( $zip_size_in_bytes ),
+				'backup_zip_size' => $this->size_format( $zip_size_in_bytes ),
 			]
 		);
 
@@ -1274,6 +1274,86 @@ class SnapshotCommand extends WP_CLI_Command {
 			return true;
 		}
 		return false;
+	}
+
+	/**
+	 * Display file size with format.
+	 *
+	 * @param $bytes
+	 *
+	 * @return string
+	 */
+	private function size_format( $bytes ) {
+		// phpcs:disable WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound -- Backfilling WP native constants.
+		if ( ! defined( 'KB_IN_BYTES' ) ) {
+			define( 'KB_IN_BYTES', 1024 );
+		}
+
+		if ( ! defined( 'MB_IN_BYTES' ) ) {
+			define( 'MB_IN_BYTES', 1024 * KB_IN_BYTES );
+		}
+
+		if ( ! defined( 'GB_IN_BYTES' ) ) {
+			define( 'GB_IN_BYTES', 1024 * MB_IN_BYTES );
+		}
+
+		if ( ! defined( 'TB_IN_BYTES' ) ) {
+			define( 'TB_IN_BYTES', 1024 * GB_IN_BYTES );
+		}
+		// phpcs:enable
+
+		$size_key = floor( log( $bytes ) / log( 1000 ) );
+		$sizes    = [ 'B', 'KB', 'MB', 'GB', 'TB' ];
+
+		$size_format = isset( $sizes[ $size_key ] ) ? $sizes[ $size_key ] : $sizes[0];
+
+		// Display the database size as a number.
+		switch ( $size_format ) {
+			case 'TB':
+				$divisor = pow( 1000, 4 );
+				break;
+
+			case 'GB':
+				$divisor = pow( 1000, 3 );
+				break;
+
+			case 'MB':
+				$divisor = pow( 1000, 2 );
+				break;
+
+			case 'KB':
+				$divisor = 1000;
+				break;
+
+			case 'tb':
+			case 'TiB':
+				$divisor = TB_IN_BYTES;
+				break;
+
+			case 'gb':
+			case 'GiB':
+				$divisor = GB_IN_BYTES;
+				break;
+
+			case 'mb':
+			case 'MiB':
+				$divisor = MB_IN_BYTES;
+				break;
+
+			case 'kb':
+			case 'KiB':
+				$divisor = KB_IN_BYTES;
+				break;
+
+			case 'b':
+			case 'B':
+			default:
+				$divisor = 1;
+				break;
+		}
+		$size_format_display = preg_replace( '/IB$/u', 'iB', strtoupper( $size_format ) );
+
+		return ceil( $bytes / $divisor ) . ' ' . $size_format_display;
 	}
 
 }

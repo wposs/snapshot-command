@@ -1196,16 +1196,18 @@ class SnapshotCommand extends WP_CLI_Command {
 		}
 
 		$filename = basename( $snapshot_name, '.zip' ); // Snapshot name.
-		// On local setup, move zip to snapshot directory.
-		if ( 'local' === $type ) {
-			$new_fie_path = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR );
-			exec( "mv $downloaded_file_path $new_fie_path" );
-		}
 		$this->snapshot_config_data = $this->get_snapshot_file_data( 'local' === $type ? $snapshot_name : $filename, $type );
 		if ( false === $this->verify_downloaded_zip() ) {
 			unlink( $downloaded_file_path );
 			WP_CLI::error( 'Invalid Snapshot: Provided zip was not created by snapshot-command.' );
 		}
+
+		// On local setup, move zip to snapshot directory.
+		if ( 'local' === $type ) {
+			$new_fie_path = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR );
+			exec( "cp $downloaded_file_path $new_fie_path" );
+		}
+
 		WP_CLI::log( 'Downloaded zip verified.' );
 		WP_CLI::log( 'Creating record in database...' );
 		$zip_size_in_bytes = \WP_CLI\Snapshot\Utils::size_in_bytes( Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR ) . $filename . '.zip' );

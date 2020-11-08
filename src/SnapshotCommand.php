@@ -1195,7 +1195,12 @@ class SnapshotCommand extends WP_CLI_Command {
 			);
 		}
 
-		$filename                   = basename( $snapshot_name, '.zip' ); // Snapshot name.
+		$filename = basename( $snapshot_name, '.zip' ); // Snapshot name.
+		// On local setup, move zip to snapshot directory.
+		if ( 'local' === $type ) {
+			$new_fie_path = Utils\trailingslashit( WP_CLI_SNAPSHOT_DIR );
+			exec( "mv $downloaded_file_path $new_fie_path" );
+		}
 		$this->snapshot_config_data = $this->get_snapshot_file_data( 'local' === $type ? $snapshot_name : $filename, $type );
 		if ( false === $this->verify_downloaded_zip() ) {
 			unlink( $downloaded_file_path );
